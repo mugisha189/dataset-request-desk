@@ -1,0 +1,22 @@
+.claude/
+.DS_Store
+**/.DS_Store
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# env
+.env
+*.env.local
+
+# editors
+.vscode/
+.idea/
+
+# large generated seed data
+backend/seed/episodes_large.csv
