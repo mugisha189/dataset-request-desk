@@ -10,6 +10,14 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Node / frontend
+frontend/node_modules/
+# Vite build output -- vite.config.ts writes it straight into backend/app/static;
+# `npm run build` regenerates it, so it isn't committed.
+backend/app/static/assets/
+backend/app/static/index.html
+backend/app/static/favicon.svg
+
 # env
 .env
 *.env.local

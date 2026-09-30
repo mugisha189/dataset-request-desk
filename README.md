@@ -5,8 +5,9 @@ episode datasets, operators fulfil them by assigning recorded episodes, and
 clients accept or reject the delivery.
 
 - **Backend:** Python, FastAPI, SQLAlchemy, Alembic migrations, PostgreSQL.
-- **Frontend:** a small vanilla-JS single-page app (no build step) served by
-  the same FastAPI app, talking to the JSON API.
+- **Frontend:** React + TypeScript + Vite + Tailwind CSS + Radix UI primitives,
+  built as a single-page app and served as static files by the same FastAPI
+  app (one deployable, no separate frontend host/CORS to manage).
 - **Stretch item chosen:** none — see `NOTES.md` §2 for what was left out and why.
 
 ## Running it
@@ -23,9 +24,10 @@ from `backend/seed/users.json`, and starts the API + frontend on
 
 ### Without Docker
 
-Requires Python 3.11+ and a running PostgreSQL instance.
+Requires Python 3.11+, Node 20+, and a running PostgreSQL instance.
 
 ```bash
+# Backend
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -35,7 +37,18 @@ python cli.py seed-users seed/users.json
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000.
+```bash
+# Frontend (in a second terminal)
+cd frontend
+npm install
+npm run dev    # dev server on :5173, proxies /api to the backend on :8000
+```
+
+Open http://localhost:5173 for hot-reloading development, or build it once
+(`npm run build`, from `frontend/`) and open **http://localhost:8000** to have
+the FastAPI server serve the built app directly — that's what `npm run build`
+does: it writes straight into `backend/app/static` (see `frontend/vite.config.ts`),
+which is also what the Docker image does at build time.
 
 ### Seed user credentials
 

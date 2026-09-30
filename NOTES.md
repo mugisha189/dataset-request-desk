@@ -57,11 +57,16 @@ press.
 - **No password reset / email verification / rate limiting on login** — out
   of scope for an internal tool with a handful of accounts created by an
   admin, but a real product would need at least login rate limiting.
-- **The frontend is intentionally minimal**: no client-side router library,
-  no optimistic UI, no toast notifications — it's a ~600-line vanilla JS file
-  that re-fetches and re-renders a view wholesale on every action. That's a
-  reasonable trade for a small internal tool; it would not scale well to a
-  much larger UI.
+- **The frontend has no optimistic UI or toast notifications** — every
+  action (assign an episode, change a status) re-fetches and re-renders the
+  view it affects rather than updating local state speculatively. It's built
+  with React + TypeScript + Vite + Tailwind + Radix UI, with the same
+  reusable primitives (`Button`, `Field`, `Table`, `Dialog`, `Chip`,
+  `Skeleton`) and `useAsync`/`useDebounced` data-fetching pattern a larger
+  internal app would use, rather than a bespoke one-off SPA — the parts that
+  are missing (i18n, an export/card-view toggle, row-action menus) were left
+  out because this domain doesn't need them yet, not because the pattern
+  couldn't support them.
 - **No soft-delete / undo** for assignments or requests — unassigning an
   episode really deletes the assignment row (its history isn't kept, though
   the request's own status history is).

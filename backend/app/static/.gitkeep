@@ -1,0 +1,4 @@
+This directory is populated by the frontend build (`npm run build` in
+frontend/, or the Docker image build) — see the root README's "Running it"
+section. It's kept in git only so the directory exists for `StaticFiles` to
+mount before that build has run.
