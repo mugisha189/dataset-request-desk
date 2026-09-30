@@ -1,22 +1,37 @@
 import json
 
 from fastapi import APIRouter, Depends, File, UploadFile
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import require_operator
 from ..models import Assignment, Episode, Quality, User
-from ..schemas import EpisodeOut, ImportResult
+from ..schemas import EpisodeOut, ImportResult, Page
 from ..services.export import export_response
 from ..services.import_episodes import import_episodes_csv
+from ..services.listing import paginate, parse_sort
 
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 
+SORTABLE = {
+    "episode_id": Episode.episode_id,
+    "robot_id": Episode.robot_id,
+    "task_name": Episode.task_name,
+    "recorded_at": Episode.recorded_at,
+    "duration_seconds": Episode.duration_seconds,
+    "operator_name": Episode.operator_name,
+    "quality": Episode.quality,
+}
 
-def _filtered_episodes_query(db: Session, task_name: str | None, quality: Quality | None, unassigned_only: bool):
+
+def _filtered_episodes_query(db: Session, search: str | None, quality: Quality | None, unassigned_only: bool):
     query = db.query(Episode)
-    if task_name:
-        query = query.filter(Episode.task_name.ilike(f"%{task_name.strip().lower()}%"))
+    if search:
+        needle = f"%{search.strip().lower()}%"
+        query = query.filter(
+            or_(Episode.task_name.ilike(needle), Episode.episode_id.ilike(needle), Episode.operator_name.ilike(needle))
+        )
     if quality:
         query = query.filter(Episode.quality == quality)
     if unassigned_only:
@@ -24,18 +39,31 @@ def _filtered_episodes_query(db: Session, task_name: str | None, quality: Qualit
     return query
 
 
-@router.get("", response_model=list[EpisodeOut])
+def _to_out(episode: Episode) -> EpisodeOut:
+    return EpisodeOut.model_validate(episode, from_attributes=True).model_copy(
+        update={"is_assigned": episode.assignment is not None}
+    )
+
+
+@router.get("", response_model=Page[EpisodeOut])
 def list_episodes(
     task_name: str | None = None,
     quality: Quality | None = None,
     unassigned_only: bool = False,
-    limit: int = 200,
+    sort: str | None = None,
+    page: int = 0,
+    page_size: int = 20,
     db: Session = Depends(get_db),
     _operator: User = Depends(require_operator),
 ):
+    """`task_name` doubles as the free-text search box on the frontend -- it also matches episode
+    id and operator name, not just the task."""
     query = _filtered_episodes_query(db, task_name, quality, unassigned_only)
-    episodes = query.order_by(Episode.recorded_at.desc()).limit(min(limit, 1000)).all()
-    return [EpisodeOut.model_validate(e, from_attributes=True).model_copy(update={"is_assigned": e.assignment is not None}) for e in episodes]
+    sort_column, ascending = parse_sort(sort, SORTABLE, Episode.recorded_at)
+    if sort_column is Episode.recorded_at and sort is None:
+        ascending = False  # default: most recent first
+    episodes, total = paginate(query, sort_column, ascending, page, min(page_size, 100))
+    return Page(items=[_to_out(e) for e in episodes], total=total, page=page, page_size=page_size)
 
 
 @router.get("/export")

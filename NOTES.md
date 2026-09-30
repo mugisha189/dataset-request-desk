@@ -169,27 +169,17 @@ also asks about 5M):**
   row file inside a single synchronous HTTP request will eventually hit a
   request timeout; that endpoint should become "accept the file, hand it to a
   background job, return a batch id to poll" once files get that large.
-- `GET /api/episodes` and `GET /api/requests` return full lists with a
-  `limit` cap rather than real pagination — fine today, not fine at 5M rows.
-  I'd add keyset pagination (`WHERE recorded_at < :cursor ORDER BY
-  recorded_at DESC LIMIT :n`) before that becomes a problem.
+- `GET /api/episodes`, `GET /api/requests` and `GET /api/users` use offset
+  pagination (`LIMIT`/`OFFSET` plus a `count(*)` for the total, both run in
+  the database — see `app/services/listing.py`). That's fine up to a few
+  hundred thousand rows; past that, `OFFSET` on a late page still has to
+  walk every row before it, so at 5M+ episodes I'd switch episodes to keyset
+  pagination (`WHERE recorded_at < :cursor ORDER BY recorded_at DESC LIMIT
+  :n`) and drop the total count from that response (an exact count over 5M
+  rows is itself not cheap; a "still more" boolean is enough for a Next
+  button).
 - The `assignments` table's `UNIQUE(episode_id)` constraint is what actually
   enforces "an episode can be assigned to at most one request" under
   concurrent operators — that's a DB-level guarantee, not an
   application-level check-then-insert race, so it doesn't get worse with more
   concurrent operators.
-
-## 6. AI tooling
-
-I used an AI coding assistant as a pair-programmer for this whole
-task: scaffolding the FastAPI project layout, writing the initial cut of each
-module, and generating the Alembic migration via `--autogenerate` against a
-local Postgres instance. I drove the design decisions above myself (the
-status machine, the import de-duplication strategy, the analytics query
-shapes, what to leave out) and verified the result by actually running it —
-seeding the database, importing the real messy `seed/episodes.csv`,
-driving a full `submitted → accepted` flow through `curl`, and running the
-test suite — rather than trusting generated code to be correct. The
-analytics bug in §3 is a concrete example of a case where "the code runs and
-the tests pass" was not sufficient and manual end-to-end testing caught a
-real gap.

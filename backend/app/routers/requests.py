@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..deps import require_any, require_operator
-from ..models import Assignment, DatasetRequest, Episode, RequestStatusEvent, Role, User
+from ..models import Assignment, DatasetRequest, Episode, RequestStatus, RequestStatusEvent, Role, User
 from ..schemas import (
     AssignEpisodesRequest,
+    Page,
     RequestCreate,
     RequestDetailOut,
     RequestOut,
@@ -14,9 +16,17 @@ from ..schemas import (
 )
 from ..services.assignments import AssignmentError, assign_episode
 from ..services.export import export_response
+from ..services.listing import paginate, parse_sort
 from ..services.transitions import TransitionError, apply_transition
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
+
+SORTABLE = {
+    "task_name": DatasetRequest.task_name,
+    "deadline": DatasetRequest.deadline,
+    "status": DatasetRequest.status,
+    "created_at": DatasetRequest.created_at,
+}
 
 
 def _to_out(req: DatasetRequest) -> RequestOut:
@@ -41,6 +51,20 @@ def _to_detail(req: DatasetRequest) -> RequestDetailOut:
         for e in req.status_events
     ]
     return out
+
+
+def _filtered_requests_query(db: Session, user: User, search: str | None, req_status: RequestStatus | None):
+    query = db.query(DatasetRequest).options(joinedload(DatasetRequest.client), joinedload(DatasetRequest.assignments))
+    if user.role == Role.client:
+        query = query.filter(DatasetRequest.client_id == user.id)
+    if req_status:
+        query = query.filter(DatasetRequest.status == req_status)
+    if search:
+        needle = f"%{search.strip().lower()}%"
+        query = query.join(DatasetRequest.client).filter(
+            or_(DatasetRequest.task_name.ilike(needle), User.name.ilike(needle))
+        )
+    return query
 
 
 def _get_request_or_404(db: Session, request_id: str) -> DatasetRequest:
@@ -81,25 +105,34 @@ def create_request(payload: RequestCreate, db: Session = Depends(get_db), user: 
     return _to_out(req)
 
 
-@router.get("", response_model=list[RequestOut])
-def list_requests(db: Session = Depends(get_db), user: User = Depends(require_any)):
-    query = db.query(DatasetRequest).options(joinedload(DatasetRequest.client), joinedload(DatasetRequest.assignments))
-    if user.role == Role.client:
-        query = query.filter(DatasetRequest.client_id == user.id)
-    requests = query.order_by(DatasetRequest.created_at.desc()).all()
-    return [_to_out(r) for r in requests]
+@router.get("", response_model=Page[RequestOut])
+def list_requests(
+    search: str | None = None,
+    req_status: RequestStatus | None = Query(None, alias="status"),
+    sort: str | None = None,
+    page: int = 0,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_any),
+):
+    query = _filtered_requests_query(db, user, search, req_status)
+    sort_column, ascending = parse_sort(sort, SORTABLE, DatasetRequest.created_at)
+    if sort_column is DatasetRequest.created_at and sort is None:
+        ascending = False  # default: newest first
+    requests, total = paginate(query, sort_column, ascending, page, min(page_size, 100))
+    return Page(items=[_to_out(r) for r in requests], total=total, page=page, page_size=page_size)
 
 
 @router.get("/export")
 def export_requests(
+    search: str | None = None,
+    req_status: RequestStatus | None = Query(None, alias="status"),
     format: str = "csv",
     db: Session = Depends(get_db),
     user: User = Depends(require_any),
 ):
-    query = db.query(DatasetRequest).options(joinedload(DatasetRequest.client), joinedload(DatasetRequest.assignments))
-    if user.role == Role.client:
-        query = query.filter(DatasetRequest.client_id == user.id)
-    requests = query.order_by(DatasetRequest.created_at.desc()).all()
+    query = _filtered_requests_query(db, user, search, req_status)
+    requests = query.order_by(DatasetRequest.created_at.desc()).limit(5000).all()
 
     headers = ["Task", "Client", "Episodes requested", "Assigned", "Deadline", "Status", "Created"]
     rows = [

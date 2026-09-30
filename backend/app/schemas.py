@@ -1,8 +1,20 @@
 from datetime import datetime
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, EmailStr, Field
 
 from .models import ExportStatus, Quality, RequestStatus, Role
+
+T = TypeVar("T")
+
+
+class Page(BaseModel, Generic[T]):
+    """A page of results plus enough to render pagination controls without a second round trip."""
+
+    items: list[T]
+    total: int
+    page: int
+    page_size: int
 
 
 # ---- auth ----

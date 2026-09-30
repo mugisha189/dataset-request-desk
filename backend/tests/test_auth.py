@@ -57,7 +57,8 @@ def test_client_only_sees_own_requests_in_list(client, client_user, other_client
     login(client, other_client_user.email)
     res = client.get("/api/requests")
     assert res.status_code == 200
-    assert res.json() == []
+    assert res.json()["items"] == []
+    assert res.json()["total"] == 0
 
 
 def test_deactivated_user_cannot_authenticate_with_old_token(client, admin, client_user, db):
