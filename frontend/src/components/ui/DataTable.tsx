@@ -69,6 +69,18 @@ export interface DataTableFilterConfig {
   render?: (props: { value: string; onChange: (value: string) => void }) => ReactNode
 }
 
+export interface DataTableSortOption {
+  label: string
+  value: string
+}
+
+export interface DataTableSortConfig {
+  options: DataTableSortOption[]
+  /** "field,direction", e.g. "created_at,desc". */
+  value?: string
+  onChange: (value: string) => void
+}
+
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[]
   data: T[]
@@ -76,6 +88,7 @@ export interface DataTableProps<T> {
   pagination?: DataTablePaginationConfig
   search?: DataTableSearchConfig
   filters?: DataTableFilterConfig[]
+  sort?: DataTableSortConfig
   actions?: DataTableAction<T>[]
   titleActions?: ReactNode
   export?: DataTableExportConfig
@@ -156,6 +169,7 @@ export function DataTable<T>({
   pagination,
   search,
   filters,
+  sort,
   actions,
   titleActions,
   export: exportConfig,
@@ -204,7 +218,23 @@ export function DataTable<T>({
 
   const hasActions = Boolean(actions && actions.length > 0)
   const colSpan = columns.length + (hasActions ? 1 : 0)
-  const showFilterToggle = (filters?.length ?? 0) > 0
+  const showFilterToggle = (filters?.length ?? 0) > 0 || Boolean(sort)
+
+  const [sortField, sortDirection]: [string | null, 'asc' | 'desc'] = (() => {
+    if (!sort?.value) return [null, 'asc']
+    const parts = sort.value.split(',').map((p) => p.trim()).filter(Boolean)
+    return [parts[0] || null, parts[1]?.toLowerCase() === 'desc' ? 'desc' : 'asc']
+  })()
+
+  function handleSortFieldChange(selected: string) {
+    if (!sort) return
+    sort.onChange(selected.includes(',') ? selected : `${selected},${sortDirection}`)
+  }
+
+  function handleToggleSortDirection() {
+    if (!sort || !sortField) return
+    sort.onChange(`${sortField},${sortDirection === 'asc' ? 'desc' : 'asc'}`)
+  }
 
   return (
     <div className="space-y-2">
@@ -302,6 +332,34 @@ export function DataTable<T>({
                   )}
                 </div>
               ))}
+
+              {sort && (
+                <>
+                  <div className="min-w-[160px]">
+                    <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-faint">Sort by</div>
+                    <Select value={sort.value ?? ''} onChange={(event) => handleSortFieldChange(event.target.value)} aria-label="Sort by">
+                      <option value="">Default</option>
+                      {sort.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleSortDirection}
+                    disabled={!sortField}
+                    aria-label={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                    className={cn(
+                      'grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg border text-ink transition-colors',
+                      sortField ? 'border-line bg-white hover:border-ink/30' : 'cursor-not-allowed border-line/60 bg-white opacity-50',
+                    )}
+                  >
+                    {sortDirection === 'asc' ? <Icon.SortAsc className="h-4 w-4" /> : <Icon.SortAsc className="h-4 w-4 -scale-y-100" />}
+                  </button>
+                </>
+              )}
 
               {onClearFilters && (
                 <div className="ml-auto flex items-center">

@@ -53,7 +53,7 @@ export function ExportMenu({ onDownload }: { onDownload: (format: ExportFormat) 
           aria-label="Export"
           title="Export"
           className={cn(
-            'grid h-9 w-9 place-items-center rounded-pill border transition-colors',
+            'grid h-9 w-9 place-items-center rounded-lg border transition-colors',
             open ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink-muted hover:border-ink/30 hover:text-ink',
           )}
         >
