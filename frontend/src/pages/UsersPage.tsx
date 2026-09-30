@@ -14,16 +14,27 @@ import { useAsync } from '../lib/useAsync'
 
 export function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const { data: users, loading, error, reload } = useAsync((signal) => usersApi.list(signal), [])
 
   async function toggleActive(user: User) {
-    await usersApi.update(user.id, { is_active: !user.is_active })
-    reload()
+    setActionError(null)
+    try {
+      await usersApi.update(user.id, { is_active: !user.is_active })
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not update that user.')
+    }
   }
 
   async function changeRole(user: User, role: Role) {
-    await usersApi.update(user.id, { role })
-    reload()
+    setActionError(null)
+    try {
+      await usersApi.update(user.id, { role })
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not update that user.')
+    }
   }
 
   const columns: Column<User>[] = [
@@ -79,6 +90,7 @@ export function UsersPage() {
         }
       />
       {error && <Alert className="mb-4">{error}</Alert>}
+      {actionError && <Alert className="mb-4">{actionError}</Alert>}
       <Table columns={columns} data={users ?? []} keyExtractor={(u) => u.id} isLoading={loading} emptyTitle="No users yet" />
     </div>
   )

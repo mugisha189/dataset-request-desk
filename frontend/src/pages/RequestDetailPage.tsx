@@ -6,7 +6,7 @@ import { useSession } from '../auth/session-context'
 import { PageHeader } from '../components/layout/AppLayout'
 import { Button } from '../components/ui/Button'
 import { QualityChip, StatusChip } from '../components/ui/Chip'
-import { Dialog, DialogContent } from '../components/ui/Dialog'
+import { Dialog, DialogClose, DialogContent } from '../components/ui/Dialog'
 import { Alert, ErrorState } from '../components/ui/Feedback'
 import { Select } from '../components/ui/Field'
 import { Icon } from '../components/ui/Icons'
@@ -43,7 +43,10 @@ export function RequestDetailPage() {
 
   const { data: req, loading, error, reload } = useAsync((signal) => requestsApi.get(id!, signal), [id])
 
-  if (loading) {
+  // Only the first load shows the skeleton -- reload() (after a status change or an
+  // assignment) sets `loading` again too, and re-mounting the whole page under an operator's
+  // cursor every time they click a button reads as a glitch rather than a refresh.
+  if (loading && !req) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-64" />
@@ -170,14 +173,7 @@ export function RequestDetailPage() {
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent title="Assign episodes" description="Only unassigned, good or usable episodes can be assigned.">
-          <AssignPanel
-            requestId={req.id}
-            taskName={req.task_name}
-            onAssigned={() => {
-              setAssignOpen(false)
-              reload()
-            }}
-          />
+          <AssignPanel requestId={req.id} taskName={req.task_name} onAssigned={reload} />
         </DialogContent>
       </Dialog>
     </div>
@@ -189,9 +185,14 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
   const [quality, setQuality] = useState<Quality | ''>('good')
   const [error, setError] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [assignedCount, setAssignedCount] = useState(0)
   const debouncedTask = useDebounced(taskFilter, 300)
 
-  const { data: episodes, loading } = useAsync(
+  const {
+    data: episodes,
+    loading,
+    reload: reloadEpisodes,
+  } = useAsync(
     (signal) =>
       episodesApi.list(
         { task_name: debouncedTask || undefined, quality: quality || undefined, unassigned_only: true, limit: 50 },
@@ -200,14 +201,20 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
     [debouncedTask, quality],
   )
 
+  // Assigning stays in this dialog rather than closing it after one pick, so an operator can
+  // assign several episodes in a row -- closing on every click was the first version, and it
+  // meant reopening "Assign episodes" once per episode to reach a request's target count.
   async function assign(episode: Episode) {
     setError(null)
     setAssigningId(episode.id)
     try {
       await requestsApi.assign(requestId, [episode.id])
+      setAssignedCount((n) => n + 1)
       onAssigned()
+      reloadEpisodes()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assign that episode.')
+    } finally {
       setAssigningId(null)
     }
   }
@@ -254,6 +261,17 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <p className="text-[13px] text-ink-muted">
+          {assignedCount > 0 ? `${assignedCount} assigned this session` : 'Assign as many as you need, then close.'}
+        </p>
+        <DialogClose asChild>
+          <Button type="button" size="sm">
+            Done
+          </Button>
+        </DialogClose>
       </div>
     </div>
   )
