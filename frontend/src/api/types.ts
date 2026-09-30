@@ -1,3 +1,10 @@
+export interface Page<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export type Role = 'client' | 'operator' | 'admin'
 export type Quality = 'good' | 'usable' | 'bad'
 export type RequestStatus = 'submitted' | 'in_progress' | 'delivered' | 'accepted' | 'rejected'

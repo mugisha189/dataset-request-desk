@@ -1,17 +1,18 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { episodesApi, requestsApi } from '../api/client'
-import type { Assignment, Episode, Quality, RequestStatus, Role } from '../api/types'
+import type { Assignment, Episode, Quality, RequestStatus, Role, StatusEvent } from '../api/types'
 import { useSession } from '../auth/session-context'
 import { PageHeader } from '../components/layout/AppLayout'
 import { Button } from '../components/ui/Button'
 import { QualityChip, StatusChip } from '../components/ui/Chip'
+import { DataTable, type DataTableAction, type DataTableColumn } from '../components/ui/DataTable'
 import { Dialog, DialogClose, DialogContent } from '../components/ui/Dialog'
 import { Alert, ErrorState } from '../components/ui/Feedback'
 import { Select } from '../components/ui/Field'
 import { Icon } from '../components/ui/Icons'
-import { Table, type Column } from '../components/ui/Table'
 import { Skeleton } from '../components/ui/Skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs'
 import { formatDateTime } from '../lib/format'
 import { useAsync, useDebounced } from '../lib/useAsync'
 
@@ -32,6 +33,12 @@ const NEXT_STATUS: Record<RequestStatus, TransitionOption[]> = {
   rejected: [{ to: 'in_progress', label: 'Resume work (rework)', roles: ['operator', 'admin'] }],
   accepted: [],
 }
+
+const QUALITY_OPTIONS = [
+  { label: 'Good', value: 'good' },
+  { label: 'Usable', value: 'usable' },
+  { label: 'Bad', value: 'bad' },
+]
 
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -59,7 +66,7 @@ export function RequestDetailPage() {
   }
 
   const canOperate = user?.role === 'operator' || user?.role === 'admin'
-  const actions = (NEXT_STATUS[req.status] ?? []).filter((t) => user && t.roles.includes(user.role))
+  const statusActions = (NEXT_STATUS[req.status] ?? []).filter((t) => user && t.roles.includes(user.role))
   // Mirrors the server's ASSIGNABLE_REQUEST_STATUSES in app/services/assignments.py.
   const canAssign = canOperate && (['submitted', 'in_progress', 'rejected'] as RequestStatus[]).includes(req.status)
 
@@ -86,27 +93,6 @@ export function RequestDetailPage() {
     }
   }
 
-  const assignmentColumns: Column<Assignment>[] = [
-    { id: 'episode', header: 'Episode', cell: (a) => a.episode.episode_id },
-    { id: 'robot', header: 'Robot', cell: (a) => a.episode.robot_id },
-    { id: 'quality', header: 'Quality', cell: (a) => <QualityChip quality={a.episode.quality} /> },
-    { id: 'export', header: 'Export', cell: (a) => <span className="capitalize text-ink-muted">{a.export_status}</span> },
-    ...(canOperate
-      ? [
-          {
-            id: 'actions',
-            header: '',
-            className: 'text-right',
-            cell: (a: Assignment) => (
-              <Button variant="ghost" size="sm" onClick={() => unassign(a)}>
-                Unassign
-              </Button>
-            ),
-          } as Column<Assignment>,
-        ]
-      : []),
-  ]
-
   return (
     <div className="space-y-6">
       <button onClick={() => navigate('/requests')} className="text-[13px] font-semibold text-ink-muted hover:text-ink">
@@ -131,9 +117,9 @@ export function RequestDetailPage() {
         />
         {req.notes && <p className="mb-4 text-sm text-ink-muted">Notes: {req.notes}</p>}
 
-        {actions.length > 0 && (
+        {statusActions.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {actions.map((action) => (
+            {statusActions.map((action) => (
               <Button key={action.to} variant={action.destructive ? 'danger' : 'primary'} size="sm" disabled={busy} onClick={() => changeStatus(action.to)}>
                 {action.label}
               </Button>
@@ -143,33 +129,20 @@ export function RequestDetailPage() {
         {actionError && <Alert className="mt-3">{actionError}</Alert>}
       </div>
 
-      <section>
-        <h2 className="mb-2 text-sm font-bold text-ink">Assigned episodes</h2>
-        <Table
-          columns={assignmentColumns}
-          data={req.assignments}
-          keyExtractor={(a) => a.id}
-          emptyTitle="No episodes assigned yet"
-          emptyLead={canOperate ? 'Use "Assign episodes" above to add some.' : undefined}
-        />
-      </section>
+      <Tabs defaultValue="episodes">
+        <TabsList>
+          <TabsTrigger value="episodes">Episodes ({req.assignments.length})</TabsTrigger>
+          <TabsTrigger value="history">History ({req.status_events.length})</TabsTrigger>
+        </TabsList>
 
-      <section>
-        <h2 className="mb-2 text-sm font-bold text-ink">History</h2>
-        <div className="overflow-hidden rounded-card border border-line bg-white">
-          <ul className="divide-y divide-line/70">
-            {req.status_events.map((event, index) => (
-              <li key={index} className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm">
-                <span className="text-ink-muted">{event.from_status ?? 'created'} →</span>
-                <StatusChip status={event.to_status} />
-                <span className="ml-auto text-[13px] text-ink-muted">
-                  {event.actor_name ?? 'unknown'} · {formatDateTime(event.created_at)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+        <TabsContent value="episodes">
+          <AssignedEpisodesTable assignments={req.assignments} canOperate={canOperate} onUnassign={unassign} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <HistoryTimeline events={req.status_events} />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent title="Assign episodes" description="Only unassigned, good or usable episodes can be assigned.">
@@ -177,6 +150,143 @@ export function RequestDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/**
+ * The request's own assigned episodes, through the same shared DataTable every top-level listing
+ * uses -- search, a quality filter and pagination, all driven client-side here since the whole
+ * list already arrives with the request (it's bounded by `episodes_requested`, never large enough
+ * to need its own paginated endpoint the way the Episodes/Requests/Users listings do).
+ */
+function AssignedEpisodesTable({
+  assignments,
+  canOperate,
+  onUnassign,
+}: {
+  assignments: Assignment[]
+  canOperate: boolean
+  onUnassign: (assignment: Assignment) => void
+}) {
+  const [searchValue, setSearchValue] = useState('')
+  const [quality, setQuality] = useState<Quality | ''>('')
+  const [pageIndex, setPageIndex] = useState(0)
+  const pageSize = 10
+
+  const filtered = useMemo(() => {
+    let rows = assignments
+    if (quality) rows = rows.filter((a) => a.episode.quality === quality)
+    if (searchValue) {
+      const needle = searchValue.toLowerCase()
+      rows = rows.filter((a) => a.episode.episode_id.toLowerCase().includes(needle) || a.episode.robot_id.toLowerCase().includes(needle))
+    }
+    return rows
+  }, [assignments, quality, searchValue])
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const page = filtered.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize)
+
+  const columns: DataTableColumn<Assignment>[] = [
+    { id: 'episode', header: 'Episode', cell: (a) => <span className="font-semibold">{a.episode.episode_id}</span> },
+    { id: 'robot', header: 'Robot', cell: (a) => a.episode.robot_id },
+    { id: 'quality', header: 'Quality', cell: (a) => <QualityChip quality={a.episode.quality} /> },
+    { id: 'export', header: 'Export', cell: (a) => <span className="capitalize text-ink-muted">{a.export_status}</span> },
+  ]
+
+  const actions: DataTableAction<Assignment>[] = canOperate
+    ? [{ name: 'Unassign', icon: <Icon.Close className="h-4 w-4" />, destructive: true, action: onUnassign }]
+    : []
+
+  return (
+    <DataTable
+      columns={columns}
+      data={page}
+      keyExtractor={(a) => a.id}
+      search={{
+        value: searchValue,
+        onChange: (v) => {
+          setSearchValue(v)
+          setPageIndex(0)
+        },
+        placeholder: 'Search episode or robot…',
+      }}
+      filters={[
+        {
+          label: 'Quality',
+          value: quality,
+          onChange: (v) => {
+            setQuality(v as Quality | '')
+            setPageIndex(0)
+          },
+          options: QUALITY_OPTIONS,
+        },
+      ]}
+      onClearFilters={() => {
+        setSearchValue('')
+        setQuality('')
+        setPageIndex(0)
+      }}
+      pagination={{ pageIndex, pageSize, totalCount: filtered.length, pageCount, onPageChange: setPageIndex }}
+      actions={actions}
+      cardRenderer={(a) => (
+        <div className="flex h-full flex-col gap-2 rounded-card border border-line bg-white p-4">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold text-ink">{a.episode.episode_id}</p>
+            <QualityChip quality={a.episode.quality} />
+          </div>
+          <p className="text-[13px] text-ink-muted">{a.episode.robot_id}</p>
+          <p className="mt-auto text-[13px] capitalize text-ink-muted">Export: {a.export_status}</p>
+        </div>
+      )}
+      noDataComponent={<div className="py-16 text-center text-sm text-ink-muted">No episodes assigned yet</div>}
+    />
+  )
+}
+
+const EVENT_ICON: Record<RequestStatus, keyof typeof Icon> = {
+  submitted: 'Inbox',
+  in_progress: 'Clock',
+  delivered: 'Box',
+  accepted: 'Check',
+  rejected: 'Close',
+}
+
+/**
+ * The request's status history as a timeline -- ported (in spirit) from the reference design
+ * system's log stream: an icon in a circle, a connecting line down to the next entry, and the
+ * "what happened / who did it / when" on the right, rather than a plain table.
+ */
+function HistoryTimeline({ events }: { events: StatusEvent[] }) {
+  if (events.length === 0) {
+    return <div className="rounded-card border border-dashed border-line bg-white py-16 text-center text-sm text-ink-muted">No history yet</div>
+  }
+
+  return (
+    <ul className="overflow-hidden rounded-card border border-line bg-white">
+      {events.map((event, index) => {
+        const Glyph = Icon[EVENT_ICON[event.to_status]]
+        const isLast = index === events.length - 1
+        return (
+          <li key={index} className="flex gap-3 border-b border-line/60 p-4 last:border-b-0">
+            <div className="flex flex-col items-center">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-tint text-ink-muted">
+                <Glyph className="h-4 w-4" />
+              </span>
+              {!isLast && <span className="mt-1 w-px flex-1 bg-line" aria-hidden />}
+            </div>
+            <div className="min-w-0 flex-1 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-ink-muted">{event.from_status ?? 'created'} →</span>
+                <StatusChip status={event.to_status} />
+              </div>
+              <p className="mt-1 text-[13px] text-ink-muted">
+                {event.actor_name ?? 'unknown'} · {formatDateTime(event.created_at)}
+              </p>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -189,17 +299,18 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
   const debouncedTask = useDebounced(taskFilter, 300)
 
   const {
-    data: episodes,
+    data: episodePage,
     loading,
     reload: reloadEpisodes,
   } = useAsync(
     (signal) =>
       episodesApi.list(
-        { task_name: debouncedTask || undefined, quality: quality || undefined, unassigned_only: true, limit: 50 },
+        { task_name: debouncedTask || undefined, quality: quality || undefined, unassigned_only: true, page_size: 50 },
         signal,
       ),
     [debouncedTask, quality],
   )
+  const episodes = episodePage?.items ?? []
 
   // Assigning stays in this dialog rather than closing it after one pick, so an operator can
   // assign several episodes in a row -- closing on every click was the first version, and it
@@ -241,7 +352,7 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
       <div className="max-h-80 overflow-y-auto rounded-lg border border-line">
         {loading ? (
           <div className="p-3 text-sm text-ink-muted">Loading…</div>
-        ) : !episodes || episodes.length === 0 ? (
+        ) : episodes.length === 0 ? (
           <div className="p-4 text-center text-sm text-ink-muted">No matching unassigned episodes.</div>
         ) : (
           <ul className="divide-y divide-line/70">

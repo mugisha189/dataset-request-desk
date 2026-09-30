@@ -5,10 +5,18 @@ import type {
   DatasetRequestDetail,
   Episode,
   ImportResult,
+  Page,
   Quality,
   RequestStatus,
   User,
 } from './types'
+
+/** Shared shape for every listing page: a page index/size and an optional "field,direction" sort. */
+export interface ListParams {
+  page?: number
+  page_size?: number
+  sort?: string
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -60,7 +68,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T
 }
 
-function query(params: Record<string, unknown> = {}): string {
+function query(params: object = {}): string {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue
@@ -78,19 +86,20 @@ export const authApi = {
 }
 
 export const usersApi = {
-  list: (signal?: AbortSignal) => request<User[]>('/users', { signal }),
+  list: (params: ListParams & { search?: string; role?: string }, signal?: AbortSignal) =>
+    request<Page<User>>(`/users${query(params)}`, { signal }),
   create: (body: { email: string; name: string; password: string; role: string; organisation?: string | null }) =>
     request<User>('/users', { method: 'POST', body }),
   update: (id: string, body: { role?: string; is_active?: boolean }) =>
     request<User>(`/users/${id}`, { method: 'PATCH', body }),
-  exportUrl: () => ({ path: '/users/export', params: {} }),
+  exportUrl: (params: { search?: string; role?: string }) => ({ path: '/users/export', params }),
 }
 
 export const episodesApi = {
   list: (
-    params: { task_name?: string; quality?: Quality; unassigned_only?: boolean; limit?: number },
+    params: ListParams & { task_name?: string; quality?: Quality; unassigned_only?: boolean },
     signal?: AbortSignal,
-  ) => request<Episode[]>(`/episodes${query(params)}`, { signal }),
+  ) => request<Page<Episode>>(`/episodes${query(params)}`, { signal }),
   import: (file: File) => {
     const form = new FormData()
     form.append('file', file)
@@ -103,7 +112,8 @@ export const episodesApi = {
 }
 
 export const requestsApi = {
-  list: (signal?: AbortSignal) => request<DatasetRequest[]>('/requests', { signal }),
+  list: (params: ListParams & { search?: string; status?: RequestStatus }, signal?: AbortSignal) =>
+    request<Page<DatasetRequest>>(`/requests${query(params)}`, { signal }),
   get: (id: string, signal?: AbortSignal) => request<DatasetRequestDetail>(`/requests/${id}`, { signal }),
   create: (body: { task_name: string; episodes_requested: number; deadline: string; notes?: string | null }) =>
     request<DatasetRequest>('/requests', { method: 'POST', body }),
@@ -116,7 +126,7 @@ export const requestsApi = {
     }),
   unassign: (requestId: string, assignmentId: string) =>
     request<void>(`/requests/${requestId}/assignments/${assignmentId}`, { method: 'DELETE' }),
-  exportUrl: () => ({ path: '/requests/export', params: {} }),
+  exportUrl: (params: { search?: string; status?: RequestStatus }) => ({ path: '/requests/export', params }),
 }
 
 export const analyticsApi = {

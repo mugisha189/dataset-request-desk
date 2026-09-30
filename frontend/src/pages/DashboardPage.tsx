@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { analyticsApi } from '../api/client'
-import { ChipButton, StatusChip } from '../components/ui/Chip'
+import { Button } from '../components/ui/Button'
+import { StatusChip } from '../components/ui/Chip'
 import { DataTable, type DataTableColumn } from '../components/ui/DataTable'
 import { ErrorState } from '../components/ui/Feedback'
 import { Field } from '../components/ui/Field'
 import { Icon } from '../components/ui/Icons'
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/Popover'
+import { cn } from '../lib/utils'
 import { BarChart, LineChart, PieChart } from '../dashboard/charts'
 import { Panel, ProgressBar, SectionHeader, SectionSkeleton, StatCard } from '../dashboard/blocks'
 import { QUALITY_COLOR, ROBOT_COLOR } from '../dashboard/palette'
@@ -37,10 +40,19 @@ function rangeFor(period: Period, customFrom: string, customTo: string): { from?
 
 const STATUS_ORDER: RequestStatus[] = ['submitted', 'in_progress', 'delivered', 'accepted', 'rejected']
 
+const PERIODS: { key: Period; label: string }[] = [
+  { key: 'day', label: 'Today' },
+  { key: 'week', label: 'This week' },
+  { key: 'month', label: 'This month' },
+  { key: 'year', label: 'This year' },
+  { key: 'custom', label: 'Custom' },
+]
+
 export function DashboardPage() {
   const [period, setPeriod] = useState<Period>('month')
   const [customFrom, setCustomFrom] = useState(isoDate(new Date(Date.now() - 29 * 86400_000)))
   const [customTo, setCustomTo] = useState(isoDate(new Date()))
+  const [periodMenuOpen, setPeriodMenuOpen] = useState(false)
 
   const range = useMemo(() => rangeFor(period, customFrom, customTo), [period, customFrom, customTo])
 
@@ -49,18 +61,18 @@ export function DashboardPage() {
     [range.from, range.to],
   )
 
-  const periods: { key: Period; label: string }[] = [
-    { key: 'day', label: 'Today' },
-    { key: 'week', label: 'This week' },
-    { key: 'month', label: 'This month' },
-    { key: 'year', label: 'This year' },
-    { key: 'custom', label: 'Custom' },
-  ]
-
   const statusCounts = useMemo(() => {
     const map = new Map(data?.requests_by_status.map((row) => [row.status, row.count]) ?? [])
     return STATUS_ORDER.map((status) => ({ status, count: map.get(status) ?? 0 }))
   }, [data])
+
+  // Derived from the same status counts already fetched for the row above -- no extra request.
+  const statusMap = useMemo(() => new Map(statusCounts.map((row) => [row.status, row.count])), [statusCounts])
+  const totalRequests = statusCounts.reduce((sum, row) => sum + row.count, 0)
+  const accepted = statusMap.get('accepted') ?? 0
+  const rejected = statusMap.get('rejected') ?? 0
+  const acceptanceRate = accepted + rejected > 0 ? Math.round((accepted / (accepted + rejected)) * 100) : null
+  const awaitingAction = (statusMap.get('submitted') ?? 0) + (statusMap.get('in_progress') ?? 0)
 
   const dailyColumns: DataTableColumn<{ day: string; robot_id: string; count: number }>[] = [
     { id: 'day', header: 'Day', cell: (row) => row.day },
@@ -68,31 +80,61 @@ export function DashboardPage() {
     { id: 'count', header: 'Episodes recorded', cell: (row) => formatNumber(row.count) },
   ]
 
+  const currentLabel = PERIODS.find((one) => one.key === period)?.label ?? 'This month'
+
   return (
     <div className="space-y-10 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink">Dashboard</h1>
           <p className="mt-0.5 text-sm text-ink-muted">
             {range.from && range.to ? `${range.from} — ${range.to}` : 'Today'}
           </p>
         </div>
-      </div>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {periods.map((one) => (
-            <ChipButton key={one.key} active={period === one.key} onClick={() => setPeriod(one.key)}>
-              {one.label}
-            </ChipButton>
-          ))}
-        </div>
-        {period === 'custom' && (
-          <div className="grid max-w-md gap-3 sm:grid-cols-2">
-            <Field label="From" type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} />
-            <Field label="To" type="date" value={customTo} min={customFrom} onChange={(e) => setCustomTo(e.target.value)} />
-          </div>
-        )}
+        <Popover open={periodMenuOpen} onOpenChange={setPeriodMenuOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-[13px] font-bold text-ink transition-colors hover:border-ink/30"
+            >
+              <Icon.Clock className="h-4 w-4 text-ink-faint" />
+              {currentLabel}
+              <Icon.Chevron className="h-3.5 w-3.5 rotate-90 text-ink-faint" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64">
+            <div className="space-y-1">
+              {PERIODS.map((one) => (
+                <button
+                  key={one.key}
+                  type="button"
+                  onClick={() => {
+                    setPeriod(one.key)
+                    if (one.key !== 'custom') setPeriodMenuOpen(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors',
+                    period === one.key ? 'bg-ink text-white' : 'text-ink hover:bg-surface-tint',
+                  )}
+                >
+                  {one.label}
+                  {period === one.key && <Icon.Check className="h-4 w-4" />}
+                </button>
+              ))}
+            </div>
+
+            {period === 'custom' && (
+              <div className="mt-3 space-y-3 border-t border-line pt-3">
+                <Field label="From" type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} />
+                <Field label="To" type="date" value={customTo} min={customFrom} onChange={(e) => setCustomTo(e.target.value)} />
+                <Button type="button" size="sm" className="w-full" onClick={() => setPeriodMenuOpen(false)}>
+                  Apply
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {error ? (
@@ -120,7 +162,7 @@ export function DashboardPage() {
               ))}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+            <div className="grid gap-4 lg:grid-cols-[1.8fr_1fr]">
               <Panel title="Requests created per day">
                 <div className="p-4">
                   <LineChart
@@ -131,14 +173,12 @@ export function DashboardPage() {
                 </div>
               </Panel>
 
-              <Panel title="Median submitted → delivered">
-                <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-                  <p className="tnum text-4xl font-bold text-ink">
-                    {data.median_submitted_to_delivered_hours != null ? formatHours(data.median_submitted_to_delivered_hours) : '—'}
-                  </p>
-                  <p className="text-sm text-ink-muted">across every request delivered in this range</p>
-                </div>
-              </Panel>
+              <div className="grid grid-cols-2 gap-3">
+                <MiniStat label="Median submitted → delivered" value={data.median_submitted_to_delivered_hours != null ? formatHours(data.median_submitted_to_delivered_hours) : '—'} />
+                <MiniStat label="Total requests" value={formatNumber(totalRequests)} />
+                <MiniStat label="Acceptance rate" value={acceptanceRate != null ? `${acceptanceRate}%` : '—'} />
+                <MiniStat label="Awaiting action" value={formatNumber(awaitingAction)} />
+              </div>
             </div>
           </section>
 
@@ -238,12 +278,30 @@ export function DashboardPage() {
               columns={dailyColumns}
               data={data.episodes_per_day_per_robot}
               keyExtractor={(row) => `${row.day}-${row.robot_id}`}
+              cardRenderer={(row) => (
+                <div className="flex h-full flex-col gap-2 rounded-card border border-line bg-white p-4">
+                  <p className="font-semibold text-ink">{row.day}</p>
+                  <p className="text-[13px] text-ink-muted">{row.robot_id}</p>
+                  <p className="mt-auto text-2xl font-bold text-ink">{formatNumber(row.count)}</p>
+                </div>
+              )}
               export={{ getDownloadUrl: () => analyticsApi.dailyExportUrl({ date_from: range.from, date_to: range.to }), defaultFilename: 'episodes-per-day' }}
               noDataComponent={<div className="py-16 text-center text-sm text-ink-muted">No episodes in this range</div>}
             />
           </section>
         </>
       )}
+    </div>
+  )
+}
+
+/** A compact stat block, sized to sit four-to-a-panel rather than one huge number in a lot of
+ *  empty space -- used next to the daily-requests chart so that panel earns its own height. */
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col justify-center rounded-card border border-line bg-white p-4">
+      <p className="tnum text-2xl font-bold text-ink">{value}</p>
+      <p className="mt-1 text-[13px] leading-snug text-ink-muted">{label}</p>
     </div>
   )
 }

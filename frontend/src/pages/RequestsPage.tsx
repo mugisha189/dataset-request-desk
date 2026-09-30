@@ -1,12 +1,12 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { requestsApi } from '../api/client'
-import type { DatasetRequest } from '../api/types'
+import type { DatasetRequest, RequestStatus } from '../api/types'
 import { useSession } from '../auth/session-context'
 import { PageHeader } from '../components/layout/AppLayout'
 import { Button } from '../components/ui/Button'
 import { StatusChip } from '../components/ui/Chip'
-import { DataTable, type DataTableColumn } from '../components/ui/DataTable'
+import { DataTable, type DataTableAction, type DataTableColumn } from '../components/ui/DataTable'
 import { Dialog, DialogContent, DialogTrigger } from '../components/ui/Dialog'
 import { Alert } from '../components/ui/Feedback'
 import { Field, TextArea } from '../components/ui/Field'
@@ -22,27 +22,53 @@ const STATUS_OPTIONS = [
   { label: 'Rejected', value: 'rejected' },
 ]
 
+const SORT_OPTIONS = [
+  { label: 'Created (newest)', value: 'created_at,desc' },
+  { label: 'Created (oldest)', value: 'created_at,asc' },
+  { label: 'Deadline', value: 'deadline,asc' },
+  { label: 'Task name', value: 'task_name,asc' },
+  { label: 'Status', value: 'status,asc' },
+]
+
+const PAGE_SIZE = 20
+
 export function RequestsPage() {
   const { user } = useSession()
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('')
   const [searchValue, setSearchValue] = useState('')
+  const [sort, setSort] = useState('')
+  const [pageIndex, setPageIndex] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
-  const { data: requests, loading, error, reload } = useAsync((signal) => requestsApi.list(signal), [])
   const debouncedSearch = useDebounced(searchValue, 250)
 
   const isClient = user?.role === 'client'
 
-  const filtered = useMemo(() => {
-    if (!requests) return []
-    let rows = requests
-    if (statusFilter) rows = rows.filter((r) => r.status === statusFilter)
-    if (debouncedSearch) {
-      const needle = debouncedSearch.toLowerCase()
-      rows = rows.filter((r) => r.task_name.toLowerCase().includes(needle) || (r.client_name ?? '').toLowerCase().includes(needle))
-    }
-    return rows
-  }, [requests, statusFilter, debouncedSearch])
+  const {
+    data: requestPage,
+    loading,
+    error,
+    reload,
+  } = useAsync(
+    (signal) =>
+      requestsApi.list(
+        {
+          search: debouncedSearch || undefined,
+          status: (statusFilter as RequestStatus) || undefined,
+          sort: sort || undefined,
+          page: pageIndex,
+          page_size: PAGE_SIZE,
+        },
+        signal,
+      ),
+    [debouncedSearch, statusFilter, sort, pageIndex],
+  )
+  const requests = requestPage?.items ?? []
+  const pageCount = Math.max(1, Math.ceil((requestPage?.total ?? 0) / PAGE_SIZE))
+
+  function resetToFirstPage() {
+    setPageIndex(0)
+  }
 
   const columns: DataTableColumn<DatasetRequest>[] = [
     { id: 'task', header: 'Task', cell: (r) => <span className="font-semibold">{r.task_name}</span> },
@@ -50,16 +76,10 @@ export function RequestsPage() {
     { id: 'progress', header: 'Assigned', cell: (r) => `${r.assigned_count} / ${r.episodes_requested}` },
     { id: 'deadline', header: 'Deadline', cell: (r) => formatDate(r.deadline) },
     { id: 'status', header: 'Status', cell: (r) => <StatusChip status={r.status} /> },
-    {
-      id: 'open',
-      header: '',
-      className: 'text-right',
-      cell: (r) => (
-        <Button variant="secondary" size="sm" onClick={() => navigate(`/requests/${r.id}`)}>
-          Open
-        </Button>
-      ),
-    },
+  ]
+
+  const actions: DataTableAction<DatasetRequest>[] = [
+    { name: 'View', icon: <Icon.Arrow className="h-4 w-4" />, action: (r) => navigate(`/requests/${r.id}`) },
   ]
 
   return (
@@ -93,13 +113,49 @@ export function RequestsPage() {
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={requests}
         keyExtractor={(r) => r.id}
         isLoading={loading}
-        search={{ value: searchValue, onChange: setSearchValue, placeholder: 'Search task or client…' }}
-        filters={isClient ? undefined : [{ label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS }]}
-        onClearFilters={isClient ? undefined : () => setStatusFilter('')}
-        export={{ getDownloadUrl: () => requestsApi.exportUrl(), defaultFilename: 'requests' }}
+        search={{
+          value: searchValue,
+          onChange: (v) => {
+            setSearchValue(v)
+            resetToFirstPage()
+          },
+          placeholder: 'Search task or client…',
+        }}
+        filters={
+          isClient
+            ? undefined
+            : [
+                {
+                  label: 'Status',
+                  value: statusFilter,
+                  onChange: (v) => {
+                    setStatusFilter(v)
+                    resetToFirstPage()
+                  },
+                  options: STATUS_OPTIONS,
+                },
+              ]
+        }
+        sort={{ options: SORT_OPTIONS, value: sort, onChange: (v) => { setSort(v); resetToFirstPage() } }}
+        pagination={{
+          pageIndex,
+          pageSize: PAGE_SIZE,
+          totalCount: requestPage?.total ?? 0,
+          pageCount,
+          onPageChange: setPageIndex,
+        }}
+        onClearFilters={() => {
+          setSearchValue('')
+          setStatusFilter('')
+          setSort('')
+          resetToFirstPage()
+        }}
+        actions={actions}
+        cardRenderer={(r) => <RequestCard request={r} isClient={isClient} />}
+        export={{ getDownloadUrl: () => requestsApi.exportUrl({ search: debouncedSearch || undefined, status: (statusFilter as RequestStatus) || undefined }), defaultFilename: 'requests' }}
         noDataComponent={
           <div className="py-16 text-center">
             <p className="text-base font-bold text-ink">{isClient ? 'No requests yet' : 'No requests match this filter'}</p>
@@ -107,6 +163,22 @@ export function RequestsPage() {
           </div>
         }
       />
+    </div>
+  )
+}
+
+function RequestCard({ request, isClient }: { request: DatasetRequest; isClient: boolean }) {
+  return (
+    <div className="flex h-full flex-col gap-3 rounded-card border border-line bg-white p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold text-ink">{request.task_name}</p>
+        <StatusChip status={request.status} />
+      </div>
+      {!isClient && <p className="text-[13px] text-ink-muted">{request.client_name ?? '—'}</p>}
+      <div className="mt-auto flex items-center justify-between text-[13px] text-ink-muted">
+        <span>{request.assigned_count} / {request.episodes_requested} assigned</span>
+        <span>Due {formatDate(request.deadline)}</span>
+      </div>
     </div>
   )
 }
