@@ -138,9 +138,9 @@ function EpisodeCard({ episode }: { episode: Episode }) {
         <QualityChip quality={episode.quality} />
       </div>
       <p className="text-[13px] text-ink-muted">{episode.robot_id} · {episode.task_name}</p>
-      <div className="mt-auto flex items-center justify-between text-[13px] text-ink-muted">
-        <span>{episode.duration_seconds}s · {episode.operator_name}</span>
-        <span>{episode.is_assigned ? 'Assigned' : '—'}</span>
+      <div className="mt-auto flex items-center justify-between gap-2 pr-9 text-[13px] text-ink-muted">
+        <span className="truncate">{episode.duration_seconds}s · {episode.operator_name}</span>
+        <span className="whitespace-nowrap">{episode.is_assigned ? 'Assigned' : '—'}</span>
       </div>
     </div>
   )

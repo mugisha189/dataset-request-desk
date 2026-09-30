@@ -207,9 +207,9 @@ function UserCard({ user }: { user: User }) {
         <Chip tone={user.is_active ? 'ok' : 'neutral'}>{user.is_active ? 'Active' : 'Inactive'}</Chip>
       </div>
       <p className="text-[13px] text-ink-muted">{user.email}</p>
-      <div className="mt-auto flex items-center justify-between text-[13px] text-ink-muted">
+      <div className="mt-auto flex items-center justify-between gap-2 pr-9 text-[13px] text-ink-muted">
         <span className="capitalize">{user.role}</span>
-        <span>{formatDate(user.created_at)}</span>
+        <span className="whitespace-nowrap">{formatDate(user.created_at)}</span>
       </div>
     </div>
   )

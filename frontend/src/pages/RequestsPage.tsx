@@ -175,9 +175,9 @@ function RequestCard({ request, isClient }: { request: DatasetRequest; isClient:
         <StatusChip status={request.status} />
       </div>
       {!isClient && <p className="text-[13px] text-ink-muted">{request.client_name ?? '—'}</p>}
-      <div className="mt-auto flex items-center justify-between text-[13px] text-ink-muted">
+      <div className="mt-auto flex items-center justify-between gap-2 pr-9 text-[13px] text-ink-muted">
         <span>{request.assigned_count} / {request.episodes_requested} assigned</span>
-        <span>Due {formatDate(request.deadline)}</span>
+        <span className="whitespace-nowrap">Due {formatDate(request.deadline)}</span>
       </div>
     </div>
   )

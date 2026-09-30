@@ -235,7 +235,7 @@ function AssignedEpisodesTable({
             <QualityChip quality={a.episode.quality} />
           </div>
           <p className="text-[13px] text-ink-muted">{a.episode.robot_id}</p>
-          <p className="mt-auto text-[13px] capitalize text-ink-muted">Export: {a.export_status}</p>
+          <p className="mt-auto pr-9 text-[13px] capitalize text-ink-muted">Export: {a.export_status}</p>
         </div>
       )}
       noDataComponent={<div className="py-16 text-center text-sm text-ink-muted">No episodes assigned yet</div>}
