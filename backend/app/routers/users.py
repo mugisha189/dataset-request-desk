@@ -6,6 +6,7 @@ from ..deps import require_admin
 from ..models import User
 from ..schemas import UserCreate, UserOut, UserUpdate
 from ..security import hash_password
+from ..services.export import export_response
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -13,6 +14,24 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 @router.get("", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
     return db.query(User).order_by(User.created_at).all()
+
+
+@router.get("/export")
+def export_users(format: str = "csv", db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
+    users = db.query(User).order_by(User.created_at).all()
+    headers = ["Name", "Email", "Role", "Organisation", "Status", "Created"]
+    rows = [
+        [
+            u.name,
+            u.email,
+            u.role.value,
+            u.organisation or "",
+            "active" if u.is_active else "inactive",
+            u.created_at.strftime("%Y-%m-%d"),
+        ]
+        for u in users
+    ]
+    return export_response(fmt=format, headers=headers, rows=rows, filename_base="users", title="Users")
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)

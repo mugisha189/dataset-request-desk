@@ -2,12 +2,13 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { Link, type LinkProps } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
+export type ButtonVariant = 'primary' | 'secondary' | 'gold' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-ink text-white hover:bg-ink-soft active:bg-black disabled:bg-ink/40',
   secondary: 'bg-white text-ink border border-line hover:border-ink/30 hover:bg-surface-tint',
+  gold: 'bg-gold-bright text-ink hover:bg-gold active:bg-gold disabled:bg-gold-soft',
   ghost: 'bg-transparent text-ink hover:bg-surface-tint',
   danger: 'bg-danger text-white hover:brightness-110',
 }
@@ -20,9 +21,9 @@ const SIZES: Record<ButtonSize, string> = {
 
 function classes(variant: ButtonVariant, size: ButtonSize, className?: string) {
   return cn(
-    'inline-flex items-center justify-center rounded-lg font-semibold transition-colors',
+    'inline-flex items-center justify-center rounded-pill font-bold transition-colors',
     'disabled:cursor-not-allowed disabled:opacity-60',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30',
     VARIANTS[variant],
     SIZES[size],
     className,

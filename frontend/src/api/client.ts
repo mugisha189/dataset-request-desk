@@ -83,6 +83,7 @@ export const usersApi = {
     request<User>('/users', { method: 'POST', body }),
   update: (id: string, body: { role?: string; is_active?: boolean }) =>
     request<User>(`/users/${id}`, { method: 'PATCH', body }),
+  exportUrl: () => ({ path: '/users/export', params: {} }),
 }
 
 export const episodesApi = {
@@ -95,6 +96,10 @@ export const episodesApi = {
     form.append('file', file)
     return request<ImportResult>('/episodes/import', { method: 'POST', raw: form })
   },
+  exportUrl: (params: { task_name?: string; quality?: Quality; unassigned_only?: boolean }) => ({
+    path: '/episodes/export',
+    params,
+  }),
 }
 
 export const requestsApi = {
@@ -111,9 +116,41 @@ export const requestsApi = {
     }),
   unassign: (requestId: string, assignmentId: string) =>
     request<void>(`/requests/${requestId}/assignments/${assignmentId}`, { method: 'DELETE' }),
+  exportUrl: () => ({ path: '/requests/export', params: {} }),
 }
 
 export const analyticsApi = {
   get: (params: { date_from?: string; date_to?: string }, signal?: AbortSignal) =>
     request<Analytics>(`/analytics${query(params)}`, { signal }),
+  dailyExportUrl: (params: { date_from?: string; date_to?: string }) => ({ path: '/analytics/daily-export', params }),
+}
+
+/**
+ * Download an export.
+ *
+ * Not through `request`, which parses JSON -- this comes back as a file. The filename is taken
+ * from Content-Disposition when the browser can read it, so the saved file is named by the
+ * server rather than after the endpoint.
+ */
+export async function downloadExport(path: string, params: Record<string, unknown>, fallbackName: string): Promise<void> {
+  const response = await fetch(`/api${path}${query(params)}`, { credentials: 'same-origin' })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new ApiError(response.status, (payload && payload.detail) || response.statusText)
+  }
+
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const match = /filename="?([^"]+)"?/.exec(disposition)
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = match?.[1] ?? fallbackName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  // Released on the next tick: revoking synchronously races the click in Safari and the
+  // download arrives empty.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

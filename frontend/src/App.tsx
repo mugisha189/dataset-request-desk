@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { SessionProvider } from './auth/SessionProvider'
 import { AppLayout } from './components/layout/AppLayout'
 import { RequireAuth, RequireRole } from './components/layout/RequireAuth'
-import { AnalyticsPage } from './pages/AnalyticsPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { EpisodesPage } from './pages/EpisodesPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -25,7 +25,7 @@ export default function App() {
 
               <Route element={<RequireRole roles={['operator', 'admin']} />}>
                 <Route path="episodes" element={<EpisodesPage />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
               </Route>
 
               <Route element={<RequireRole roles={['admin']} />}>

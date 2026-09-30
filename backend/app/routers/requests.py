@@ -13,6 +13,7 @@ from ..schemas import (
     StatusTransition,
 )
 from ..services.assignments import AssignmentError, assign_episode
+from ..services.export import export_response
 from ..services.transitions import TransitionError, apply_transition
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
@@ -87,6 +88,33 @@ def list_requests(db: Session = Depends(get_db), user: User = Depends(require_an
         query = query.filter(DatasetRequest.client_id == user.id)
     requests = query.order_by(DatasetRequest.created_at.desc()).all()
     return [_to_out(r) for r in requests]
+
+
+@router.get("/export")
+def export_requests(
+    format: str = "csv",
+    db: Session = Depends(get_db),
+    user: User = Depends(require_any),
+):
+    query = db.query(DatasetRequest).options(joinedload(DatasetRequest.client), joinedload(DatasetRequest.assignments))
+    if user.role == Role.client:
+        query = query.filter(DatasetRequest.client_id == user.id)
+    requests = query.order_by(DatasetRequest.created_at.desc()).all()
+
+    headers = ["Task", "Client", "Episodes requested", "Assigned", "Deadline", "Status", "Created"]
+    rows = [
+        [
+            r.task_name,
+            r.client.name if r.client else "",
+            str(r.episodes_requested),
+            str(len(r.assignments)),
+            r.deadline.strftime("%Y-%m-%d"),
+            r.status.value,
+            r.created_at.strftime("%Y-%m-%d %H:%M"),
+        ]
+        for r in requests
+    ]
+    return export_response(fmt=format, headers=headers, rows=rows, filename_base="requests", title="Dataset requests")
 
 
 @router.get("/{request_id}", response_model=RequestDetailOut)

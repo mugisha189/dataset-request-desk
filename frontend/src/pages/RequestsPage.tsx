@@ -6,32 +6,47 @@ import { useSession } from '../auth/session-context'
 import { PageHeader } from '../components/layout/AppLayout'
 import { Button } from '../components/ui/Button'
 import { StatusChip } from '../components/ui/Chip'
+import { DataTable, type DataTableColumn } from '../components/ui/DataTable'
 import { Dialog, DialogContent, DialogTrigger } from '../components/ui/Dialog'
 import { Alert } from '../components/ui/Feedback'
-import { Field, Select, TextArea } from '../components/ui/Field'
+import { Field, TextArea } from '../components/ui/Field'
 import { Icon } from '../components/ui/Icons'
-import type { Column } from '../components/ui/Table'
-import { Table } from '../components/ui/Table'
 import { formatDate } from '../lib/format'
-import { useAsync } from '../lib/useAsync'
+import { useAsync, useDebounced } from '../lib/useAsync'
+
+const STATUS_OPTIONS = [
+  { label: 'Submitted', value: 'submitted' },
+  { label: 'In progress', value: 'in_progress' },
+  { label: 'Delivered', value: 'delivered' },
+  { label: 'Accepted', value: 'accepted' },
+  { label: 'Rejected', value: 'rejected' },
+]
 
 export function RequestsPage() {
   const { user } = useSession()
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('')
+  const [searchValue, setSearchValue] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const { data: requests, loading, error, reload } = useAsync((signal) => requestsApi.list(signal), [])
+  const debouncedSearch = useDebounced(searchValue, 250)
 
   const isClient = user?.role === 'client'
 
   const filtered = useMemo(() => {
     if (!requests) return []
-    return statusFilter ? requests.filter((r) => r.status === statusFilter) : requests
-  }, [requests, statusFilter])
+    let rows = requests
+    if (statusFilter) rows = rows.filter((r) => r.status === statusFilter)
+    if (debouncedSearch) {
+      const needle = debouncedSearch.toLowerCase()
+      rows = rows.filter((r) => r.task_name.toLowerCase().includes(needle) || (r.client_name ?? '').toLowerCase().includes(needle))
+    }
+    return rows
+  }, [requests, statusFilter, debouncedSearch])
 
-  const columns: Column<DatasetRequest>[] = [
+  const columns: DataTableColumn<DatasetRequest>[] = [
     { id: 'task', header: 'Task', cell: (r) => <span className="font-semibold">{r.task_name}</span> },
-    ...(isClient ? [] : [{ id: 'client', header: 'Client', cell: (r: DatasetRequest) => r.client_name ?? '—' } as Column<DatasetRequest>]),
+    ...(isClient ? [] : [{ id: 'client', header: 'Client', cell: (r: DatasetRequest) => r.client_name ?? '—' } as DataTableColumn<DatasetRequest>]),
     { id: 'progress', header: 'Assigned', cell: (r) => `${r.assigned_count} / ${r.episodes_requested}` },
     { id: 'deadline', header: 'Deadline', cell: (r) => formatDate(r.deadline) },
     { id: 'status', header: 'Status', cell: (r) => <StatusChip status={r.status} /> },
@@ -53,10 +68,10 @@ export function RequestsPage() {
         title="Requests"
         lead={isClient ? 'Your dataset requests and their current status.' : 'Every request in the system.'}
         actions={
-          isClient ? (
+          isClient && (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" variant="gold">
                   <Icon.Plus className="h-4 w-4" />
                   New request
                 </Button>
@@ -70,28 +85,27 @@ export function RequestsPage() {
                 />
               </DialogContent>
             </Dialog>
-          ) : (
-            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by status" className="w-44">
-              <option value="">All statuses</option>
-              <option value="submitted">Submitted</option>
-              <option value="in_progress">In progress</option>
-              <option value="delivered">Delivered</option>
-              <option value="accepted">Accepted</option>
-              <option value="rejected">Rejected</option>
-            </Select>
           )
         }
       />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
-      <Table
+      <DataTable
         columns={columns}
         data={filtered}
         keyExtractor={(r) => r.id}
         isLoading={loading}
-        emptyTitle={isClient ? 'No requests yet' : 'No requests match this filter'}
-        emptyLead={isClient ? 'Create your first request with the button above.' : undefined}
+        search={{ value: searchValue, onChange: setSearchValue, placeholder: 'Search task or client…' }}
+        filters={isClient ? undefined : [{ label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS }]}
+        onClearFilters={isClient ? undefined : () => setStatusFilter('')}
+        export={{ getDownloadUrl: () => requestsApi.exportUrl(), defaultFilename: 'requests' }}
+        noDataComponent={
+          <div className="py-16 text-center">
+            <p className="text-base font-bold text-ink">{isClient ? 'No requests yet' : 'No requests match this filter'}</p>
+            {isClient && <p className="mt-1.5 text-sm text-ink-muted">Create your first request with the button above.</p>}
+          </div>
+        }
       />
     </div>
   )

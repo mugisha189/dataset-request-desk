@@ -16,7 +16,7 @@ interface Entry {
 const ENTRIES: Entry[] = [
   { to: '/requests', label: 'Requests', icon: 'Inbox', end: true },
   { to: '/episodes', label: 'Episodes', icon: 'Film', needs: ['operator', 'admin'] },
-  { to: '/analytics', label: 'Analytics', icon: 'Chart', needs: ['operator', 'admin'] },
+  { to: '/dashboard', label: 'Dashboard', icon: 'Chart', needs: ['operator', 'admin'] },
   { to: '/users', label: 'Users', icon: 'Users', needs: ['admin'] },
 ]
 
@@ -49,7 +49,7 @@ export function AppLayout() {
       >
         <div className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-4">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-ink">
-            <Icon.Sparkle className="h-4 w-4 text-brand-bright" />
+            <Icon.Box className="h-4 w-4 text-gold-bright" />
           </span>
           <span className="text-sm font-bold">Dataset Request Desk</span>
           <button

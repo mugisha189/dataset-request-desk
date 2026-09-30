@@ -5,9 +5,12 @@ episode datasets, operators fulfil them by assigning recorded episodes, and
 clients accept or reject the delivery.
 
 - **Backend:** Python, FastAPI, SQLAlchemy, Alembic migrations, PostgreSQL.
-- **Frontend:** React + TypeScript + Vite + Tailwind CSS + Radix UI primitives,
-  built as a single-page app and served as static files by the same FastAPI
-  app (one deployable, no separate frontend host/CORS to manage).
+- **Frontend:** React + TypeScript + Vite + Tailwind CSS + Radix UI primitives
+  + ECharts, built as a single-page app and served as static files by the
+  same FastAPI app (one deployable, no separate frontend host/CORS to manage).
+  A data table (search, filters, row actions, pagination, CSV/Excel/PDF
+  export) and a dashboard (period presets, several ECharts breakdowns) are
+  shared across every listing and are not one-offs per page.
 - **Stretch item chosen:** none — see `NOTES.md` §2 for what was left out and why.
 
 ## Running it
@@ -107,11 +110,13 @@ for scripting.
 
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
 - `GET/POST /api/users`, `PATCH /api/users/{id}` — admin only
-- `GET /api/episodes`, `POST /api/episodes/import` — operator/admin
+- `GET /api/episodes`, `POST /api/episodes/import`, `GET /api/episodes/export?format=csv|xlsx|pdf` — operator/admin
 - `POST/GET /api/requests`, `GET /api/requests/{id}`,
   `POST /api/requests/{id}/status`,
-  `POST/DELETE /api/requests/{id}/assignments[/{assignment_id}]`
-- `GET /api/analytics?date_from=&date_to=`
+  `POST/DELETE /api/requests/{id}/assignments[/{assignment_id}]`,
+  `GET /api/requests/export?format=csv|xlsx|pdf`
+- `GET /api/analytics?date_from=&date_to=`, `GET /api/analytics/daily-export?format=csv|xlsx|pdf`
+- `GET /api/users/export?format=csv|xlsx|pdf` — admin only
 - `GET /health`
 
 See `NOTES.md` for the domain rules, design decisions, and what's out of scope.

@@ -99,9 +99,46 @@ export interface TopTask {
   good_episode_count: number
 }
 
+export interface QualityBreakdown {
+  quality: Quality
+  count: number
+}
+
+export interface OperatorProductivity {
+  operator_name: string
+  count: number
+}
+
+export interface RequestsPerDay {
+  day: string
+  count: number
+}
+
+export interface RobotDuration {
+  robot_id: string
+  avg_duration_seconds: number
+}
+
+export interface ClientRequestCount {
+  client_name: string
+  count: number
+}
+
+export interface EpisodeFunnel {
+  total: number
+  assigned: number
+  unassigned: number
+}
+
 export interface Analytics {
+  episode_funnel: EpisodeFunnel
   episodes_per_day_per_robot: EpisodesPerDayPerRobot[]
   requests_by_status: RequestsByStatus[]
   median_submitted_to_delivered_hours: number | null
   top_tasks_by_good_episodes: TopTask[]
+  quality_breakdown: QualityBreakdown[]
+  operator_productivity: OperatorProductivity[]
+  requests_created_per_day: RequestsPerDay[]
+  avg_duration_by_robot: RobotDuration[]
+  clients_by_requests: ClientRequestCount[]
 }

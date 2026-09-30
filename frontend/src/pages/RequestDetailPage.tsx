@@ -226,7 +226,7 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
           value={taskFilter}
           onChange={(event) => setTaskFilter(event.target.value)}
           placeholder="Filter by task name"
-          className="h-9 flex-1 rounded-lg border border-line bg-white px-3 text-sm focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-brand/15"
+          className="h-9 flex-1 rounded-lg border border-line bg-white px-3 text-sm focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-gold/20"
         />
         <Select value={quality} onChange={(event) => setQuality(event.target.value as Quality | '')} className="w-32">
           <option value="">Any quality</option>

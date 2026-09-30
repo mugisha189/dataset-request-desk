@@ -14,6 +14,15 @@ cache or queue. The status machine is enforced in
 transition — the UI just shows the buttons a role happens to be allowed to
 press.
 
+**Frontend design system.** At my own request, the UI (component library,
+palette, DataTable, dashboard blocks, ECharts wrappers) is patterned closely
+after an internal back-office design system I've used on another project —
+same component shapes and conventions, adapted to this domain's data rather
+than invented from scratch. The one thing not carried over verbatim is the
+typeface: that system ships a commercial font licensed for its own company's
+properties, which isn't mine to redistribute in a public repo, so this
+project uses Space Grotesk (Google Fonts, a similar geometric sans) instead.
+
 **Hardest decisions:**
 
 1. **What counts as a duplicate on import, and how to make re-running a file
@@ -60,13 +69,20 @@ press.
 - **The frontend has no optimistic UI or toast notifications** — every
   action (assign an episode, change a status) re-fetches and re-renders the
   view it affects rather than updating local state speculatively. It's built
-  with React + TypeScript + Vite + Tailwind + Radix UI, with the same
-  reusable primitives (`Button`, `Field`, `Table`, `Dialog`, `Chip`,
-  `Skeleton`) and `useAsync`/`useDebounced` data-fetching pattern a larger
-  internal app would use, rather than a bespoke one-off SPA — the parts that
-  are missing (i18n, an export/card-view toggle, row-action menus) were left
-  out because this domain doesn't need them yet, not because the pattern
-  couldn't support them.
+  with React + TypeScript + Vite + Tailwind + Radix UI + ECharts, with a
+  shared `DataTable` (search, filters, row-action portal, pagination,
+  CSV/Excel/PDF export) and `useAsync`/`useDebounced` data-fetching pattern
+  used identically on every listing, rather than each page inventing its own
+  — the one piece of that pattern deliberately left dormant is the table's
+  card-view toggle: the prop exists but nothing here passes a `cardRenderer`,
+  because none of this domain's tables are the kind of visual content a card
+  grid suits. No i18n either — this is a single-language internal tool.
+- **Exports are generated on request, not cached or queued.** For CSV/Excel
+  that's instant even at a few thousand rows; the PDF path builds the whole
+  document in the request before responding, which is the first thing that
+  would need to move to a background job if an export ever needed to cover
+  the "5 million episodes" scale §5 talks about — nothing here is designed
+  to page through a huge export.
 - **No soft-delete / undo** for assignments or requests — unassigning an
   episode really deletes the assignment row (its history isn't kept, though
   the request's own status history is).

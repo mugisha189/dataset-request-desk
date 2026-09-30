@@ -4,17 +4,22 @@ import type { Episode, ImportResult, Quality } from '../api/types'
 import { PageHeader } from '../components/layout/AppLayout'
 import { Button } from '../components/ui/Button'
 import { QualityChip } from '../components/ui/Chip'
+import { DataTable, type DataTableColumn } from '../components/ui/DataTable'
 import { Alert } from '../components/ui/Feedback'
-import { Select } from '../components/ui/Field'
 import { Icon } from '../components/ui/Icons'
-import { Table, type Column } from '../components/ui/Table'
 import { formatDateTime } from '../lib/format'
 import { useAsync, useDebounced } from '../lib/useAsync'
 
+const QUALITY_OPTIONS = [
+  { label: 'Good', value: 'good' },
+  { label: 'Usable', value: 'usable' },
+  { label: 'Bad', value: 'bad' },
+]
+
 export function EpisodesPage() {
-  const [taskFilter, setTaskFilter] = useState('')
+  const [searchValue, setSearchValue] = useState('')
   const [quality, setQuality] = useState<Quality | ''>('')
-  const debouncedTask = useDebounced(taskFilter, 300)
+  const debouncedTask = useDebounced(searchValue, 300)
 
   const {
     data: episodes,
@@ -26,7 +31,7 @@ export function EpisodesPage() {
     [debouncedTask, quality],
   )
 
-  const columns: Column<Episode>[] = [
+  const columns: DataTableColumn<Episode>[] = [
     { id: 'id', header: 'Episode', cell: (e) => <span className="font-semibold">{e.episode_id}</span> },
     { id: 'robot', header: 'Robot', cell: (e) => e.robot_id },
     { id: 'task', header: 'Task', cell: (e) => e.task_name },
@@ -48,24 +53,25 @@ export function EpisodesPage() {
       <ImportPanel onImported={reload} />
 
       <section>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <input
-            value={taskFilter}
-            onChange={(event) => setTaskFilter(event.target.value)}
-            placeholder="Filter by task name"
-            className="h-9 w-56 rounded-lg border border-line bg-white px-3 text-sm focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-brand/15"
-          />
-          <Select value={quality} onChange={(event) => setQuality(event.target.value as Quality | '')} className="w-40">
-            <option value="">Any quality</option>
-            <option value="good">Good</option>
-            <option value="usable">Usable</option>
-            <option value="bad">Bad</option>
-          </Select>
-        </div>
-
         {error && <Alert className="mb-3">{error}</Alert>}
 
-        <Table columns={columns} data={episodes ?? []} keyExtractor={(e) => e.id} isLoading={loading} emptyTitle="No episodes match this filter" />
+        <DataTable
+          columns={columns}
+          data={episodes ?? []}
+          keyExtractor={(e) => e.id}
+          isLoading={loading}
+          search={{ value: searchValue, onChange: setSearchValue, placeholder: 'Search by task name…' }}
+          filters={[{ label: 'Quality', value: quality, onChange: (v) => setQuality(v as Quality | ''), options: QUALITY_OPTIONS }]}
+          onClearFilters={() => {
+            setSearchValue('')
+            setQuality('')
+          }}
+          export={{
+            getDownloadUrl: () => episodesApi.exportUrl({ task_name: debouncedTask || undefined, quality: quality || undefined }),
+            defaultFilename: 'episodes',
+          }}
+          noDataComponent={<div className="py-16 text-center text-sm text-ink-muted">No episodes match this filter</div>}
+        />
       </section>
     </div>
   )
