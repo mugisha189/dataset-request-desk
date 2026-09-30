@@ -84,6 +84,14 @@ export interface DataTableProps<T> {
   loadingText?: string
   noDataComponent?: ReactNode
   onClearFilters?: () => void
+  /** Card layout for one row in card view. Row actions are overlaid automatically as a floating
+   *  button (bottom-right) -- a card renderer just lays out the row's own content. */
+  cardRenderer?: (row: T) => ReactNode
+  /** Which view a table with a `cardRenderer` opens in. Defaults to 'table' on a wide screen and
+   *  'cards' below the sm breakpoint, where columns stop fitting comfortably. */
+  defaultViewMode?: 'table' | 'cards'
+  /** Grid column classes for card view. Defaults to a 1/2/3/4-column ramp. */
+  cardGridClassName?: string
 }
 
 function EmptyDataIllustration({ className }: { className?: string }) {
@@ -156,9 +164,16 @@ export function DataTable<T>({
   loadingText,
   noDataComponent,
   onClearFilters,
+  cardRenderer,
+  defaultViewMode = 'table',
+  cardGridClassName = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
 }: DataTableProps<T>) {
   const numberFormat = useMemo(() => new Intl.NumberFormat('en-GB'), [])
 
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    if (cardRenderer && typeof window !== 'undefined' && window.innerWidth < 640) return 'cards'
+    return defaultViewMode
+  })
   const [openActionRow, setOpenActionRow] = useState<string | number | null>(null)
   const [actionMenuRect, setActionMenuRect] = useState<DOMRect | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(defaultFiltersOpen)
@@ -166,6 +181,17 @@ export function DataTable<T>({
   useEffect(() => {
     if (openActionRow == null) setActionMenuRect(null)
   }, [openActionRow])
+
+  // A card renderer forces card view under the sm breakpoint -- a table's columns stop fitting
+  // comfortably there, and a phone rotated back to landscape returns to whatever was picked.
+  useEffect(() => {
+    if (!cardRenderer) return
+    const query = window.matchMedia('(max-width: 639px)')
+    const onChange = (event: MediaQueryListEvent) => setViewMode(event.matches ? 'cards' : defaultViewMode)
+    if (query.matches) setViewMode('cards')
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [cardRenderer, defaultViewMode])
 
   const cell = useCallback((row: T, column: DataTableColumn<T>): ReactNode => {
     if (column.cell) return column.cell(row)
@@ -210,14 +236,44 @@ export function DataTable<T>({
 
         <div className="ml-auto flex shrink-0 items-end gap-2">
           {titleActions}
-          {exportConfig && (
-            <ExportMenu
-              onDownload={async (format) => {
-                const { path, params } = exportConfig.getDownloadUrl(format)
-                await downloadExport(path, { ...params, format }, `${exportConfig.defaultFilename ?? 'export'}.${format}`)
-              }}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            {exportConfig && (
+              <ExportMenu
+                onDownload={async (format) => {
+                  const { path, params } = exportConfig.getDownloadUrl(format)
+                  await downloadExport(path, { ...params, format }, `${exportConfig.defaultFilename ?? 'export'}.${format}`)
+                }}
+              />
+            )}
+            {cardRenderer && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  aria-label="Table view"
+                  aria-pressed={viewMode === 'table'}
+                  className={cn(
+                    'grid h-9 w-9 place-items-center rounded-lg border transition-colors',
+                    viewMode === 'table' ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink-muted hover:border-ink/30 hover:text-ink',
+                  )}
+                >
+                  <Icon.List className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('cards')}
+                  aria-label="Card view"
+                  aria-pressed={viewMode === 'cards'}
+                  className={cn(
+                    'grid h-9 w-9 place-items-center rounded-lg border transition-colors',
+                    viewMode === 'cards' ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink-muted hover:border-ink/30 hover:text-ink',
+                  )}
+                >
+                  <Icon.Grid className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -261,6 +317,7 @@ export function DataTable<T>({
       )}
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
+      {viewMode === 'table' && (
       <div className="overflow-x-auto rounded-card border border-line bg-white">
         <table className="min-w-full border-collapse">
           <thead>
@@ -334,6 +391,57 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
+      )}
+
+      {/* ── Cards ────────────────────────────────────────────────────────── */}
+      {viewMode === 'cards' && (
+        isLoading ? (
+          <div className={cn('grid gap-3', cardGridClassName)}>
+            <span className="sr-only">{loadingText ?? 'Loading…'}</span>
+            {Array.from({ length: 8 }, (_, index) => (
+              <div key={index} className="overflow-hidden rounded-card border border-line bg-white">
+                <div className="h-20 animate-pulse bg-surface-tint" />
+                <div className="space-y-2 p-4">
+                  <div className="h-3.5 w-32 animate-pulse rounded bg-ink/10" />
+                  <div className="h-3 w-24 animate-pulse rounded bg-ink/10" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : data.length === 0 ? (
+          noDataComponent ?? <DataTableNoData />
+        ) : (
+          <div className={cn('grid gap-3', cardGridClassName)}>
+            {data.map((row) => {
+              const key = keyExtractor(row)
+              const visibleActions = actions?.filter((one) => one.visible == null || one.visible(row)) ?? []
+              return (
+                <div key={key} className="group relative h-full [&>*:first-child]:h-full">
+                  {cardRenderer ? cardRenderer(row) : <DefaultCard columns={columns} row={row} cell={cell} />}
+                  {visibleActions.length > 0 && (
+                    <button
+                      type="button"
+                      aria-label="Actions"
+                      onClick={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect()
+                        if (openActionRow === key) {
+                          setOpenActionRow(null)
+                          return
+                        }
+                        setActionMenuRect(rect)
+                        setOpenActionRow(key)
+                      }}
+                      className="absolute bottom-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full border border-line bg-white/90 text-ink-muted opacity-100 shadow-card backdrop-blur-sm transition-all hover:bg-white hover:text-ink sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                    >
+                      <Icon.MoreVertical className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
 
       {/* ── The row menu, in a portal so no row can clip it ──────────────── */}
       {hasActions && openActionRow != null && actionMenuRect != null && (
@@ -422,6 +530,21 @@ function FilterToggle({ open, onToggle }: { open: boolean; onToggle: () => void 
     >
       <Icon.Filter className="h-4 w-4" />
     </button>
+  )
+}
+
+/** Falls back to this when card view is on but the caller didn't shape a card of its own --
+ *  every column's header/value as a stacked field list. */
+function DefaultCard<T>({ columns, row, cell }: { columns: DataTableColumn<T>[]; row: T; cell: (row: T, column: DataTableColumn<T>) => ReactNode }) {
+  return (
+    <div className="h-full space-y-2 rounded-card border border-line bg-white p-4">
+      {columns.map((column) => (
+        <div key={column.id}>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">{column.header}</div>
+          <div className="text-sm text-ink">{cell(row, column)}</div>
+        </div>
+      ))}
+    </div>
   )
 }
 

@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'SK Modernist';
+  src: url('../assets/fonts/Sk-Modernist-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SK Modernist';
+  src: url('../assets/fonts/Sk-Modernist-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SK Modernist Mono';
+  src: url('../assets/fonts/Sk-Modernist-Mono.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   * {
     border-color: theme('colors.line.DEFAULT');

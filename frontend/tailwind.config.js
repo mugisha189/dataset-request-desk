@@ -1,9 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 //
-// Palette copied from the Koolo Store back office: a warm off-white page, near-black as the
-// strong colour, and gold as the single accent. The typeface is a substitute -- the store's own
-// SK Modernist is a commercial font licensed for Koolo's properties specifically, so this project
-// uses Space Grotesk (Google Fonts, same geometric-sans family) instead of redistributing it.
+// A warm off-white page, near-black as the strong colour, and gold as the single accent. The
+// typeface, SK Modernist, is cleared for use here, so the .otf files live under src/assets/fonts
+// and are declared via @font-face in styles/tailwind.css rather than pulled from Google Fonts.
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
@@ -39,8 +38,8 @@ export default {
       },
 
       fontFamily: {
-        sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans: ['SK Modernist', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],
+        mono: ['SK Modernist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
 
       borderRadius: {
@@ -72,6 +71,8 @@ export default {
         },
         'menu-in': { from: { opacity: '0', transform: 'scale(0.96)' }, to: { opacity: '1', transform: 'scale(1)' } },
         'menu-out': { from: { opacity: '1', transform: 'scale(1)' }, to: { opacity: '0', transform: 'scale(0.96)' } },
+        'sheet-in': { from: { transform: 'translateX(100%)' }, to: { transform: 'translateX(0)' } },
+        'sheet-out': { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(100%)' } },
         shimmer: { '100%': { transform: 'translateX(100%)' } },
       },
       animation: {
@@ -83,6 +84,8 @@ export default {
         'dialog-out': 'dialog-out 150ms ease-in',
         'menu-in': 'menu-in 120ms ease-out',
         'menu-out': 'menu-out 100ms ease-in',
+        'sheet-in': 'sheet-in 260ms cubic-bezier(0.32, 0.72, 0, 1)',
+        'sheet-out': 'sheet-out 200ms ease-in',
         shimmer: 'shimmer 1.6s infinite',
       },
     },

@@ -44,6 +44,14 @@ export const Icon = {
       <rect x="14" y="14" width="7" height="7" rx="2" />
     </svg>
   ),
+  /** Stacked rows -- the "table/list view" half of a table/cards toggle. */
+  List: ({ className, strokeWidth = 2 }: IconProps) => (
+    <svg {...common} strokeWidth={strokeWidth} className={base(className)} aria-hidden="true">
+      <rect x="3" y="4.5" width="18" height="4" rx="1.2" />
+      <rect x="3" y="10" width="18" height="4" rx="1.2" />
+      <rect x="3" y="15.5" width="18" height="4" rx="1.2" />
+    </svg>
+  ),
   Tag: ({ className, strokeWidth = 2 }: IconProps) => (
     <svg {...common} strokeWidth={strokeWidth} className={base(className)} aria-hidden="true">
       <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z" />
