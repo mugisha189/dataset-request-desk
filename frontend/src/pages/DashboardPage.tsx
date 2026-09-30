@@ -295,8 +295,7 @@ export function DashboardPage() {
   )
 }
 
-/** A compact stat block, sized to sit four-to-a-panel rather than one huge number in a lot of
- *  empty space -- used next to the daily-requests chart so that panel earns its own height. */
+/** A compact stat block sized to sit four-to-a-panel, next to the daily-requests chart. */
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col justify-center rounded-card border border-line bg-white p-4">

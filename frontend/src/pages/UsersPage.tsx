@@ -215,11 +215,7 @@ function UserCard({ user }: { user: User }) {
   )
 }
 
-/**
- * Changing a user's role now opens this aside instead of an inline `<select>` in the table row:
- * a role change is consequential enough (it changes what someone is authorized to do) that it
- * deserves an explicit "Save" rather than firing the moment a dropdown value changes.
- */
+/** A role change is consequential, so it gets an explicit "Save" rather than firing on select. */
 function EditRoleSheet({
   user,
   onOpenChange,

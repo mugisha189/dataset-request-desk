@@ -1,8 +1,7 @@
 import { lazy, Suspense, type ComponentProps, type CSSProperties } from 'react'
 import { AXIS_COLOR, CHART_COLORS, GRID_COLOR, LABEL_COLOR } from './palette'
 
-// ECharts is over a megabyte. Lazily loaded so it never blocks the first paint, which on this
-// page -- a dashboard someone opens first thing -- is exactly the part that matters.
+// ECharts is over a megabyte, so it's lazily loaded to avoid blocking first paint.
 const ReactEChartsLazy = lazy(() => import('echarts-for-react'))
 
 function ReactECharts(props: ComponentProps<typeof ReactEChartsLazy>) {

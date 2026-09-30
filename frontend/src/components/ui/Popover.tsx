@@ -2,8 +2,8 @@ import * as React from 'react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { cn } from '../../lib/utils'
 
-/** A floating panel anchored to a trigger -- ported from the reference design system's Popover.
- *  Used directly (e.g. the dashboard's period picker) and underneath ExportMenu. */
+/** A floating panel anchored to a trigger. Used directly (e.g. the dashboard's period picker)
+ *  and underneath ExportMenu. */
 export const Popover = PopoverPrimitive.Root
 export const PopoverTrigger = PopoverPrimitive.Trigger
 export const PopoverAnchor = PopoverPrimitive.Anchor

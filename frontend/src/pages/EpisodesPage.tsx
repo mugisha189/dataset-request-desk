@@ -176,11 +176,7 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   )
 }
 
-/**
- * The icon-button-opens-a-sheet treatment, matching the export button's own footprint in the
- * toolbar, rather than a standalone "Import episode metadata" panel taking up page space above
- * the table at all times.
- */
+/** An icon button that opens a sheet, matching the export button's footprint in the toolbar. */
 function ImportButton({ onImported }: { onImported: () => void }) {
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)

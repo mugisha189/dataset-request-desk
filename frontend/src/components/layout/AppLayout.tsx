@@ -24,9 +24,8 @@ const ROLE_LABEL: Record<Role, string> = { client: 'Client', operator: 'Operator
 
 /**
  * The app shell: a fixed sidebar with role-gated navigation, and the account card at its foot.
- * Only one shell for the whole app -- unlike the reference this project is based on, there is no
- * separate public storefront to keep out of the sidebar's way; every role signs in and lands
- * here, and the sidebar simply shows fewer links to a client than to an operator.
+ * Every role signs in and lands here; the sidebar simply shows fewer links to a client than to
+ * an operator.
  */
 export function AppLayout() {
   const { user, signOut } = useSession()

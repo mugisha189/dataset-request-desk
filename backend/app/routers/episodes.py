@@ -56,8 +56,7 @@ def list_episodes(
     db: Session = Depends(get_db),
     _operator: User = Depends(require_operator),
 ):
-    """`task_name` doubles as the free-text search box on the frontend -- it also matches episode
-    id and operator name, not just the task."""
+    """`task_name` doubles as free-text search: it also matches episode id and operator name."""
     query = _filtered_episodes_query(db, task_name, quality, unassigned_only)
     sort_column, ascending = parse_sort(sort, SORTABLE, Episode.recorded_at)
     if sort_column is Episode.recorded_at and sort is None:

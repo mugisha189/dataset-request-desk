@@ -2,9 +2,6 @@ import type { ReactNode } from 'react'
 import { cn } from '../lib/utils'
 import { pct } from './palette'
 
-/** The dashboard's building blocks, ported from the reference design system -- only the
- * colours and icons changed, to this project's palette and inline icon set. */
-
 export function StatCard({
   icon,
   tone = 'neutral',

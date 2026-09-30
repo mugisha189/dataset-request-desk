@@ -8,9 +8,8 @@ import { Icon } from './Icons'
 import { ExportMenu, type DataTableExportConfig } from './ExportMenu'
 
 /**
- * The table used across every listing in the app -- ported from the reference design system so
- * every screen that shows rows of data behaves the same: the same toolbar, the same collapsible
- * filter panel, the same export menu, the same row-action portal.
+ * The table used across every listing in the app, so every screen that shows rows of data
+ * behaves the same: the same toolbar, filter panel, export menu, and row-action portal.
  *
  * Everything is controlled -- search, filters, sort and pagination report changes and render
  * what they're given. Nothing filters in the browser, so a listing of many thousand rows costs

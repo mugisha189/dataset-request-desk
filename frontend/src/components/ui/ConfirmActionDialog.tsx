@@ -4,9 +4,9 @@ import { Button } from './Button'
 import { cn } from '../../lib/utils'
 
 /**
- * A confirmation step in front of an action that's awkward to undo -- ported from the reference
- * design system's ConfirmActionDialog. Used wherever a DataTable row action removes or reverses
- * something (deactivating a user, say) instead of firing on the click that opened the menu.
+ * A confirmation step in front of an action that's awkward to undo. Used wherever a DataTable
+ * row action removes or reverses something (deactivating a user, say) instead of firing on the
+ * click that opened the menu.
  */
 export type ConfirmActionType = 'activate' | 'deactivate' | 'delete'
 

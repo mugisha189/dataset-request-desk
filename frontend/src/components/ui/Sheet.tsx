@@ -5,8 +5,8 @@ import { Icon } from './Icons'
 
 /**
  * A side panel for a form or detail view that needs more room than a Dialog but shouldn't take
- * over the whole screen -- ported from the reference design system's Sheet. Built on the same
- * Radix dialog primitive as Dialog.tsx, just anchored to the right edge instead of centred.
+ * over the whole screen. Built on the same Radix dialog primitive as Dialog.tsx, just anchored
+ * to the right edge instead of centred.
  */
 export const Sheet = DialogPrimitive.Root
 export const SheetTrigger = DialogPrimitive.Trigger

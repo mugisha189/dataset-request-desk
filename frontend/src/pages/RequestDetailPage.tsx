@@ -50,9 +50,8 @@ export function RequestDetailPage() {
 
   const { data: req, loading, error, reload } = useAsync((signal) => requestsApi.get(id!, signal), [id])
 
-  // Only the first load shows the skeleton -- reload() (after a status change or an
-  // assignment) sets `loading` again too, and re-mounting the whole page under an operator's
-  // cursor every time they click a button reads as a glitch rather than a refresh.
+  // Only the first load shows the skeleton; reload() also sets `loading`, and re-mounting the
+  // whole page on every button click would read as a glitch rather than a refresh.
   if (loading && !req) {
     return (
       <div className="space-y-4">
@@ -153,12 +152,8 @@ export function RequestDetailPage() {
   )
 }
 
-/**
- * The request's own assigned episodes, through the same shared DataTable every top-level listing
- * uses -- search, a quality filter and pagination, all driven client-side here since the whole
- * list already arrives with the request (it's bounded by `episodes_requested`, never large enough
- * to need its own paginated endpoint the way the Episodes/Requests/Users listings do).
- */
+/** Filtered/paginated client-side, since the full assignment list already arrives with the
+ *  request and is bounded by `episodes_requested` -- never large enough to need its own endpoint. */
 function AssignedEpisodesTable({
   assignments,
   canOperate,
@@ -251,11 +246,6 @@ const EVENT_ICON: Record<RequestStatus, keyof typeof Icon> = {
   rejected: 'Close',
 }
 
-/**
- * The request's status history as a timeline -- ported (in spirit) from the reference design
- * system's log stream: an icon in a circle, a connecting line down to the next entry, and the
- * "what happened / who did it / when" on the right, rather than a plain table.
- */
 function HistoryTimeline({ events }: { events: StatusEvent[] }) {
   if (events.length === 0) {
     return <div className="rounded-card border border-dashed border-line bg-white py-16 text-center text-sm text-ink-muted">No history yet</div>
@@ -312,9 +302,8 @@ function AssignPanel({ requestId, taskName, onAssigned }: { requestId: string; t
   )
   const episodes = episodePage?.items ?? []
 
-  // Assigning stays in this dialog rather than closing it after one pick, so an operator can
-  // assign several episodes in a row -- closing on every click was the first version, and it
-  // meant reopening "Assign episodes" once per episode to reach a request's target count.
+  // Stays open after each pick so an operator can assign several in a row -- closing on every
+  // click was the first version, and meant reopening this dialog once per episode.
   async function assign(episode: Episode) {
     setError(null)
     setAssigningId(episode.id)

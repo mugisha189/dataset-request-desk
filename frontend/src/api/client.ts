@@ -44,9 +44,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     response = await fetch(`/api${path}`, {
       method,
       signal,
-      // The session is an httpOnly cookie; fetch does not send cookies on cross-origin
-      // requests by default, and in dev this call is proxied same-origin anyway (see
-      // vite.config.ts), so this is a no-op there and load-bearing once deployed separately.
+      // Needed for the httpOnly session cookie once frontend and API are on different origins.
       credentials: 'same-origin',
       headers: raw || body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),

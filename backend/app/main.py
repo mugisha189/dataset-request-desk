@@ -39,9 +39,7 @@ def index():
 
 @app.get("/{full_path:path}")
 def spa_fallback(full_path: str):
-    # Let any non-API path resolve to the single-page app so a browser refresh
-    # on e.g. /requests/123 still works; real 404s for unknown API routes are
-    # handled by the routers above since they're registered first.
+    # Non-API paths resolve to the SPA so a refresh on e.g. /requests/123 still works.
     if full_path.startswith("api/") or full_path.startswith("static/"):
         return FileResponse(STATIC_DIR / "index.html", status_code=404)
     return FileResponse(STATIC_DIR / "index.html")

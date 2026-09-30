@@ -14,14 +14,11 @@ cache or queue. The status machine is enforced in
 transition — the UI just shows the buttons a role happens to be allowed to
 press.
 
-**Frontend design system.** At my own request, the UI (component library,
-palette, DataTable, dashboard blocks, ECharts wrappers) is patterned closely
-after an internal back-office design system I've used on another project —
-same component shapes and conventions, adapted to this domain's data rather
-than invented from scratch. The one thing not carried over verbatim is the
-typeface: that system ships a commercial font licensed for its own company's
-properties, which isn't mine to redistribute in a public repo, so this
-project uses Space Grotesk (Google Fonts, a similar geometric sans) instead.
+**Frontend design system.** A small back-office component library (Button,
+Field, Chip, Dialog/Sheet, a shared DataTable with search/filters/sort/
+pagination/export and a table-or-cards view, dashboard blocks, ECharts
+wrappers) rather than one-off styling per page, so every screen behaves the
+same way. Typeface is SK Modernist, cleared for use here.
 
 **Hardest decisions:**
 
@@ -58,11 +55,6 @@ project uses Space Grotesk (Google Fonts, a similar geometric sans) instead.
   model already has `export_status` / `export_attempts` / `export_error`
   columns reserved for exactly this, and a first version of it "just" needs an
   async worker loop.
-- **No pagination** on `/api/episodes` or `/api/requests` — episodes are
-  capped at a `limit` query param (default 200, max 1000) instead of real
-  cursor pagination, which is fine for the current data volume but would need
-  proper `after`/`before` cursors before shipping this against a database of
-  millions of episodes.
 - **No password reset / email verification / rate limiting on login** — out
   of scope for an internal tool with a handful of accounts created by an
   admin, but a real product would need at least login rate limiting.
@@ -70,13 +62,11 @@ project uses Space Grotesk (Google Fonts, a similar geometric sans) instead.
   action (assign an episode, change a status) re-fetches and re-renders the
   view it affects rather than updating local state speculatively. It's built
   with React + TypeScript + Vite + Tailwind + Radix UI + ECharts, with a
-  shared `DataTable` (search, filters, row-action portal, pagination,
-  CSV/Excel/PDF export) and `useAsync`/`useDebounced` data-fetching pattern
-  used identically on every listing, rather than each page inventing its own
-  — the one piece of that pattern deliberately left dormant is the table's
-  card-view toggle: the prop exists but nothing here passes a `cardRenderer`,
-  because none of this domain's tables are the kind of visual content a card
-  grid suits. No i18n either — this is a single-language internal tool.
+  shared `DataTable` (search, filters, sort, pagination, row actions,
+  CSV/Excel/PDF export, a table-or-cards view) and `useAsync`/`useDebounced`
+  data-fetching pattern used identically on every listing, rather than each
+  page inventing its own. No i18n either — this is a single-language
+  internal tool.
 - **Exports are generated on request, not cached or queued.** For CSV/Excel
   that's instant even at a few thousand rows; the PDF path builds the whole
   document in the request before responding, which is the first thing that
@@ -147,9 +137,10 @@ so this can't silently regress.
 ## 5. Scale
 
 **What breaks first at 10× users (a few dozen operators/clients):** nothing
-in the current design breaks at that scale — the bottleneck is UI ergonomics
-(the flat requests list has no pagination or saved filters yet), not the
-database or API.
+in the current design breaks at that scale — every listing is already
+paginated, filtered and sorted server-side rather than fetching everything
+into the browser, so this is a database/API question at that point, not a
+UI one, and the database isn't where it breaks first either.
 
 **What breaks first at 100× episodes (currently ~200, so ~20k, and the brief
 also asks about 5M):**

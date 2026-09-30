@@ -37,8 +37,7 @@ def analytics(
     db: Session = Depends(get_db),
     _operator: User = Depends(require_operator),
 ):
-    """All aggregation happens in the database via GROUP BY / percentile_cont, never by loading
-    rows into Python -- see NOTES.md for how this behaves at volume (5M+ episodes)."""
+    """All aggregation happens in the database via GROUP BY / percentile_cont, never in Python."""
     start, end = _bounds(date_from, date_to)
     params = {"start": start, "end": end}
 
@@ -95,8 +94,6 @@ def analytics(
         ),
         params,
     ).all()
-
-    # ── The rest: added so the dashboard says more than "here are some counts" ──────────────
 
     funnel = db.execute(
         text(
@@ -213,8 +210,7 @@ def export_daily(
     db: Session = Depends(get_db),
     _operator: User = Depends(require_operator),
 ):
-    """The episodes-per-day-per-robot table, exportable -- the chart on the dashboard shows the
-    shape, this is the figures behind it."""
+    """The figures behind the episodes-per-day-per-robot chart on the dashboard."""
     start, end = _bounds(date_from, date_to)
     rows_db = db.execute(
         text(

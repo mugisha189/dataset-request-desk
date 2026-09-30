@@ -4,10 +4,10 @@ import { Icon } from './Icons'
 import { cn } from '../../lib/utils'
 
 /**
- * A styled dropdown on Radix's Select primitive -- ported from the reference design system.
- * `Field.tsx`'s plain `<Select>` (a native `<select>`) still covers most in-form pickers; reach
- * for this one where a native select can't do the job, e.g. a trigger that needs to sit inside a
- * DataTable filter row at a fixed height next to other controls.
+ * A styled dropdown on Radix's Select primitive. `Field.tsx`'s plain `<Select>` (a native
+ * `<select>`) still covers most in-form pickers; reach for this one where a native select can't
+ * do the job, e.g. a trigger that needs to sit inside a DataTable filter row at a fixed height
+ * next to other controls.
  */
 export const SelectRoot = SelectPrimitive.Root
 export const SelectGroup = SelectPrimitive.Group

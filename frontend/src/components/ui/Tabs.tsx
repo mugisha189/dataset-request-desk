@@ -2,9 +2,8 @@ import * as React from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { cn } from '../../lib/utils'
 
-/** Segmented tab control -- ported from the reference design system. Kept for screens where a
- *  small, fixed set of views genuinely belongs side by side (unlike the dashboard's date-range
- *  picker, which has too many options and grows a custom range, so it's a Popover instead). */
+/** For a small, fixed set of views that genuinely belong side by side -- unlike the dashboard's
+ *  date-range picker, which has too many options and grows a custom range, so it's a Popover instead. */
 export const Tabs = TabsPrimitive.Root
 
 export const TabsList = React.forwardRef<

@@ -97,8 +97,7 @@ def create_request(payload: RequestCreate, db: Session = Depends(get_db), user: 
     )
     db.add(req)
     db.flush()
-    # Record the initial state too, so analytics (median submitted -> delivered)
-    # has a `submitted` timestamp to measure from.
+    # Analytics' median submitted->delivered calc needs a `submitted` timestamp to measure from.
     db.add(RequestStatusEvent(request_id=req.id, from_status=None, to_status=req.status, actor_id=user.id))
     db.commit()
     db.refresh(req)

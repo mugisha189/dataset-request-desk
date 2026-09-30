@@ -1,9 +1,7 @@
 """CSV/XLSX/PDF export, shared by every listing's "Export" menu.
 
-One function turns a list of plain dicts into a downloadable file in whichever of the three
-formats the UI's export menu offers -- mirroring the reference app's own export button, which
-also offers exactly these three. Rows are prepared by the caller (already formatted strings),
-so this module has no domain knowledge at all.
+Rows are prepared by the caller (already formatted strings), so this module has no domain
+knowledge at all.
 """
 
 import csv

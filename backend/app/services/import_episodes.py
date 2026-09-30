@@ -1,16 +1,9 @@
-"""CSV import for episode metadata.
+"""CSV import for episode metadata. Normalizes what it safely can and skips
+(with a reason) what it can't trust, rather than guessing.
 
-The export from the recording system is messy: duplicates, blank/invalid
-values, inconsistent casing/whitespace, mixed date formats, unknown robots,
-and at least one malformed row. This module normalizes what it safely can and
-skips (with a reason) what it cannot trust, rather than guessing.
-
-Idempotency: `episode_id` is normalized (stripped, uppercased) and is the
-natural key. Running the same file twice must not create duplicate rows, so
-we resolve against both rows already in the database and duplicates within
-the same file, and additionally rely on a DB-level unique constraint plus
-`ON CONFLICT DO NOTHING` for the actual insert so a second process racing the
-same import can't slip a duplicate in either.
+Idempotency: `episode_id` (normalized) is the natural key; a DB unique
+constraint plus `ON CONFLICT DO NOTHING` make re-running the same file safe
+even if a second import races on it.
 """
 
 import csv
@@ -102,8 +95,7 @@ class _ImportOutcome:
 
 
 def _clean_row(row_number: int, raw_row: dict, outcome: _ImportOutcome, seen_in_file: set[str]) -> _CleanRow | None:
-    # csv.DictReader gives None for missing trailing columns and puts extra
-    # columns under None (restkey) -- both signal a malformed row.
+    # csv.DictReader uses None for missing trailing columns and extra columns (restkey).
     if any(raw_row.get(col) is None for col in REQUIRED_COLUMNS) or raw_row.get(None) is not None:
         outcome.add_detail(row_number, raw_row.get("episode_id"), "skipped", "malformed row: wrong column count")
         return None
@@ -198,8 +190,7 @@ def import_episodes_csv(db: Session, file_content: str, filename: str, imported_
                 duplicate_count += 1
                 outcome.add_detail(0, row.episode_id, "duplicate", "already present in database")
 
-        # Bulk insert in chunks; ON CONFLICT DO NOTHING keeps this safe even
-        # if two imports race on the same file.
+        # ON CONFLICT DO NOTHING keeps this safe even if two imports race on the same file.
         chunk_size = 1000
         for i in range(0, len(rows_to_insert), chunk_size):
             chunk = rows_to_insert[i : i + chunk_size]

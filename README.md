@@ -65,8 +65,8 @@ which is also what the Docker image does at build time.
 
 ### Importing episode metadata
 
-Via the UI: log in as an operator/admin and use the "Import episode metadata"
-panel on the Episodes tab.
+Via the UI: log in as an operator/admin, go to Episodes, and use the import
+button next to Export.
 
 Via the CLI (same code path, useful for large files):
 

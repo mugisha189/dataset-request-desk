@@ -18,13 +18,8 @@ const FORMATS: { format: ExportFormat; label: string }[] = [
   { format: 'csv', label: 'Export as CSV' },
 ]
 
-/**
- * One button that opens a short list of formats.
- *
- * Ported from the reference app's back office: a single download icon that opens a popover of
- * formats, rather than a row of labelled buttons competing with the table's other actions for
- * the same corner.
- */
+/** A single download icon that opens a popover of formats, rather than a row of labelled
+ *  buttons competing with the table's other actions for the same corner. */
 export function ExportMenu({ onDownload }: { onDownload: (format: ExportFormat) => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<ExportFormat | null>(null)

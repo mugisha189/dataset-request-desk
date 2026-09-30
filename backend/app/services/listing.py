@@ -1,10 +1,7 @@
-"""Shared helpers for the paginated/sortable/searchable list endpoints (episodes, requests, users).
+"""Shared sort/count/paginate helpers for the list endpoints (episodes, requests, users).
 
-Every listing does the same three things to a SQLAlchemy query -- apply a whitelisted sort,
-count matching rows, then slice a page -- and does all three in the database. Nothing here loads
-a full table into Python; `query.count()` is a `SELECT count(*)` and the page itself is a single
-`LIMIT/OFFSET` query, so cost scales with the page size and the filtered result set, not with the
-table's total size.
+Everything runs as SQL (`SELECT count(*)`, a `LIMIT/OFFSET` query) so cost scales with the
+page size and filtered result set, never with the table's total size.
 """
 
 from sqlalchemy import asc, desc
@@ -12,9 +9,8 @@ from sqlalchemy.orm import Query
 
 
 def parse_sort(sort: str | None, allowed: dict[str, object], default: object) -> tuple[object, bool]:
-    """`sort` is "field,dir" (e.g. "created_at,desc"). Falls back to `default` (a column) ascending
-    when absent or the field isn't in `allowed` -- an unrecognised sort key is not something to
-    500 over, since it only ever gets there via a URL someone typed or an outdated frontend."""
+    """`sort` is "field,dir" (e.g. "created_at,desc"); falls back to `default` ascending when
+    absent or unrecognised rather than 500ing on a stale/hand-edited URL."""
     if not sort:
         return default, True
     parts = [p.strip() for p in sort.split(",") if p.strip()]
